@@ -1,6 +1,6 @@
 import React from 'react';
 import { type LucideProps } from 'lucide-react';
-import { Card, CardContent } from '../ui/card';
+import { Card } from '../ui/card';
 
 interface EmptyStateProps {
   Icon: React.ForwardRefExoticComponent<Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>>;

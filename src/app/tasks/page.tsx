@@ -5,7 +5,7 @@ import TaskList from '@/components/tasks/task-list';
 import type { Task, TaskFilter } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, orderBy, query } from 'firebase/firestore';
 import { AddTaskSheet } from '@/components/tasks/add-task-sheet';
 
 function TasksPageContent() {
@@ -15,7 +15,7 @@ function TasksPageContent() {
   const { firestore, user } = useFirebase();
 
   const tasksCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'tasks') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('updatedAt', 'desc')) : null),
     [firestore, user]
   );
   const { data: tasks, isLoading } = useCollection<Task>(tasksCollection);
@@ -38,7 +38,7 @@ export default function TasksPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Tasks</h2>
           <p className="text-muted-foreground">
-            Here's a list of your tasks.
+            Here&apos;s a list of your tasks.
           </p>
         </div>
         <div className="flex items-center space-x-2">

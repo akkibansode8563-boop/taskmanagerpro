@@ -81,7 +81,7 @@ export const AddMinutesDialog: React.FC<AddMinutesDialogProps> = ({ isOpen, setI
         <DialogHeader>
           <DialogTitle>Meeting Minutes: {meeting.title}</DialogTitle>
           <DialogDescription>
-            Add or edit the minutes for this completed meeting. Click save when you're done.
+            Add or edit the minutes for this completed meeting. Click save when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

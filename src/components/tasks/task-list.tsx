@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type Task, type TaskFilter } from '@/lib/types';
+import { isTaskDone, normalizeTask } from '@/lib/workflow';
 import { Badge } from '../ui/badge';
 import EmptyState from '../shared/empty-state';
 import TaskItem from './task-item';
@@ -60,8 +61,8 @@ const TaskList: React.FC<TaskListProps> = ({
 
     return [...tasks]
       .filter((task) => {
-        if (activeTab === 'pending') return !task.isCompleted;
-        if (activeTab === 'completed') return task.isCompleted;
+        if (activeTab === 'pending') return !isTaskDone(task);
+        if (activeTab === 'completed') return isTaskDone(task);
         return true;
       })
       .filter(
@@ -74,7 +75,7 @@ const TaskList: React.FC<TaskListProps> = ({
           return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime();
         }
         if (sortBy === 'priority') {
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
+          return priorityOrder[normalizeTask(a).priority] - priorityOrder[normalizeTask(b).priority];
         }
         if (sortBy === 'recent') {
           return b.updatedAt - a.updatedAt;
@@ -83,8 +84,8 @@ const TaskList: React.FC<TaskListProps> = ({
       });
   }, [tasks, activeTab, searchQuery, sortBy]);
 
-  const pendingCount = useMemo(() => tasks.filter((task) => !task.isCompleted).length, [tasks]);
-  const completedCount = useMemo(() => tasks.filter((task) => task.isCompleted).length, [tasks]);
+  const pendingCount = useMemo(() => tasks.filter((task) => !isTaskDone(task)).length, [tasks]);
+  const completedCount = useMemo(() => tasks.filter((task) => isTaskDone(task)).length, [tasks]);
   const allCount = tasks.length;
   const resultLabel = `${filteredTasks.length} ${filteredTasks.length === 1 ? 'task' : 'tasks'} shown`;
 

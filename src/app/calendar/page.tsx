@@ -3,7 +3,7 @@
 import React from 'react';
 import CalendarView from '@/components/dashboard/calendar-view';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, orderBy, query } from 'firebase/firestore';
 import type { Task, Meeting } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -11,13 +11,13 @@ export default function CalendarPage() {
   const { firestore, user } = useFirebase();
 
   const tasksCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'tasks') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('dueDate', 'asc')) : null),
     [firestore, user]
   );
   const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(tasksCollection);
 
   const meetingsCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'meetings') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('dateTime', 'asc')) : null),
     [firestore, user]
   );
   const { data: meetings, isLoading: meetingsLoading } = useCollection<Meeting>(meetingsCollection);

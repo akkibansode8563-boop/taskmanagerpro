@@ -19,6 +19,7 @@ import {
   getMonth,
 } from 'date-fns';
 import { type Task, type Meeting } from '@/lib/types';
+import { isMeetingDone, isTaskDone } from '@/lib/workflow';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Calendar, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -56,7 +57,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
       title: task.name,
       date: parseISO(task.dueDate),
       type: 'task',
-      isCompleted: task.isCompleted,
+      isCompleted: isTaskDone(task),
       details: task.details,
     }));
     const meetingEvents: CalendarEvent[] = meetings.map(meeting => ({
@@ -64,7 +65,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
       title: meeting.title,
       date: parseISO(meeting.dateTime),
       type: 'meeting',
-      isCompleted: meeting.isCompleted,
+      isCompleted: isMeetingDone(meeting),
       details: meeting.subtitle,
     }));
     return [...taskEvents, ...meetingEvents].sort((a, b) => a.date.getTime() - b.date.getTime());

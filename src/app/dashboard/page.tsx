@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { collection } from 'firebase/firestore';
+import { collection, orderBy, query } from 'firebase/firestore';
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Flame } from 'lucide-react';
 import Greeting from '@/components/dashboard/greeting';
 import Stats from '@/components/dashboard/stats';
@@ -11,18 +11,19 @@ import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { getProductivityInsights } from '@/lib/productivity';
 import type { Meeting, Task } from '@/lib/types';
+import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
 
 export default function DashboardPage() {
   const { firestore, user } = useFirebase();
 
   const tasksCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'tasks') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('updatedAt', 'desc')) : null),
     [firestore, user]
   );
   const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(tasksCollection);
 
   const meetingsCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'meetings') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('updatedAt', 'desc')) : null),
     [firestore, user]
   );
   const { data: meetings, isLoading: meetingsLoading } = useCollection<Meeting>(meetingsCollection);
@@ -191,6 +192,8 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      <AnalyticsOverview insights={insights} isLoading={isLoading} />
     </div>
   );
 }

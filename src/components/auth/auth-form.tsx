@@ -5,49 +5,103 @@ import { useSearchParams } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+  GoogleAuthProvider,
+  UserCredential,
+  createUserWithEmailAndPassword,
+  getRedirectResult,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
+  updateProfile,
+} from 'firebase/auth';
+import { AlertCircle, MailCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth, useFirestore } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
-import {
-  signInWithRedirect,
-  getRedirectResult,
-  GoogleAuthProvider,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  sendPasswordResetEmail,
-  UserCredential,
-  updateProfile,
-} from 'firebase/auth';
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 
-interface AuthFormProps extends React.HTMLAttributes<HTMLDivElement> {}
+type AuthFormProps = React.HTMLAttributes<HTMLDivElement>;
 
 const formSchema = z.object({
   username: z.string().optional(),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  password:
-    z.string()
-    .min(8, { message: 'Password must be at least 8 characters long.' }).optional(),
+  password: z
+    .string()
+    .min(8, { message: 'Password must be at least 8 characters long.' })
+    .optional(),
 });
 
 type UserFormValue = z.infer<typeof formSchema>;
+
+function getAuthErrorDetails(error: unknown) {
+  const firebaseError = error as { code?: string; message?: string };
+  const defaultError = {
+    title: 'Authentication Error',
+    description: firebaseError?.message || 'An unexpected error occurred. Please try again.',
+  };
+
+  switch (firebaseError?.code) {
+    case 'auth/email-already-in-use':
+      return {
+        title: 'Email Already In Use',
+        description: 'This email already has an account. Try signing in instead.',
+      };
+    case 'auth/invalid-credential':
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+      return {
+        title: 'Invalid Credentials',
+        description: 'Please check your email and password and try again.',
+      };
+    case 'auth/popup-blocked':
+      return {
+        title: 'Popup Blocked',
+        description: 'Your browser blocked the Google sign-in popup. Allow popups or try again.',
+      };
+    case 'auth/popup-closed-by-user':
+      return {
+        title: 'Sign-In Cancelled',
+        description: 'Google sign-in was closed before finishing.',
+      };
+    case 'auth/account-exists-with-different-credential':
+      return {
+        title: 'Different Sign-In Method Found',
+        description: 'This email is already linked to another sign-in method. Use that method first.',
+      };
+    case 'auth/unauthorized-domain':
+      return {
+        title: 'Domain Not Authorized',
+        description:
+          'This app domain is not authorized in Firebase Authentication. Add your current domain in Firebase Console.',
+      };
+    case 'auth/network-request-failed':
+      return {
+        title: 'Network Error',
+        description: 'The sign-in request could not reach Firebase. Check your internet connection and try again.',
+      };
+    default:
+      return defaultError;
+  }
+}
 
 export function AuthForm({ className, ...props }: AuthFormProps) {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const auth = useAuth();
   const firestore = useFirestore();
-  const [isLoading, setIsLoading] = React.useState<boolean>(false);
-  const [isGoogleLoading, setIsGoogleLoading] = React.useState<boolean>(false);
-  const [isSignUp, setIsSignUp] = React.useState(
-    searchParams.get('type') === 'signup'
-  );
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
+  const [isSignUp, setIsSignUp] = React.useState(searchParams.get('type') === 'signup');
   const [isForgotPassword, setIsForgotPassword] = React.useState(false);
   const [resetError, setResetError] = React.useState<string | null>(null);
-  
+  const [authAlert, setAuthAlert] = React.useState<{ title: string; description: string } | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -56,171 +110,196 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
   } = useForm<UserFormValue>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-        email: '',
-        password: '',
-        username: ''
-    }
+      email: '',
+      password: '',
+      username: '',
+    },
   });
 
+  const handleAuthSuccess = React.useCallback(
+    async (userCredential: UserCredential, username?: string) => {
+      const user = userCredential.user;
+      if (!user || !firestore) return;
 
-  React.useEffect(() => {
-    const handleRedirectResult = async () => {
-      if (!auth) return;
+      const userRef = doc(firestore, 'users', user.uid);
+
       try {
-        setIsGoogleLoading(true);
-        const result = await getRedirectResult(auth);
-        if (result) {
-          await handleAuthSuccess(result);
-        }
-      } catch (error: any) {
-        if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-          let description = error.message || 'Could not sign in with Google. Please try again.';
-          if (error.code === 'auth/unauthorized-domain') {
-            description = "This domain isn't authorized for Google Sign-In. Please enable it in your Firebase console.";
-          }
-          toast({
-            title: `Google Sign-In Error`,
-            description: description,
-            variant: 'destructive',
-          });
-        }
-      } finally {
-        setIsGoogleLoading(false);
-      }
-    };
-  
-    handleRedirectResult();
-  }, [auth, toast]);
+        const userDoc = await getDoc(userRef);
 
-
-  const handleAuthSuccess = async (
-    userCredential: UserCredential,
-    username?: string,
-  ) => {
-    const user = userCredential.user;
-    if (!user || !firestore) return;
-
-    const userRef = doc(firestore, 'users', user.uid);
-    
-    try {
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        const profileData = {
+        if (!userDoc.exists()) {
+          const profileData = {
             id: user.uid,
             email: user.email,
             userName: username || user.displayName || user.email?.split('@')[0],
             createdAt: serverTimestamp(),
             lastLogin: serverTimestamp(),
-        };
-        if (username) {
-          await updateProfile(user, { displayName: username });
+          };
+
+          if (username) {
+            await updateProfile(user, { displayName: username });
+          }
+
+          await setDoc(userRef, profileData, { merge: true });
+          toast({
+            title: 'Account Ready',
+            description: 'Welcome to TaskMaster Pro. Your workspace is set up.',
+          });
+        } else {
+          await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+          toast({
+            title: 'Signed In',
+            description: 'Welcome back. Your dashboard is ready.',
+          });
         }
-        await setDoc(userRef, profileData, { merge: true });
-        toast({
-          title: 'Account Created',
-          description: 'Welcome! Your account has been successfully created.',
+      } catch (error) {
+        const details = getAuthErrorDetails(error);
+        setAuthAlert({
+          title: 'Profile Setup Problem',
+          description: `Authentication succeeded, but your profile could not be prepared. ${details.description}`,
         });
-      } else {
-        await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
         toast({
-          title: 'Signed In',
-          description: 'Welcome back!',
+          title: 'Profile Setup Problem',
+          description: 'Authentication worked, but user data could not be saved to Firestore.',
+          variant: 'destructive',
         });
       }
-    } catch (error: any) {
-       toast({
-        title: 'Firestore Error',
-        description: error.message || 'Could not save user profile.',
-        variant: 'destructive',
-      });
-    }
-  };
+    },
+    [firestore, toast]
+  );
+
+  React.useEffect(() => {
+    if (!auth) return;
+
+    let isActive = true;
+
+    const resolveRedirect = async () => {
+      try {
+        setIsGoogleLoading(true);
+        const result = await getRedirectResult(auth);
+
+        if (isActive && result) {
+          await handleAuthSuccess(result);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        const details = getAuthErrorDetails(error);
+        setAuthAlert(details);
+        toast({
+          title: details.title,
+          description: details.description,
+          variant: 'destructive',
+        });
+      } finally {
+        if (isActive) {
+          setIsGoogleLoading(false);
+        }
+      }
+    };
+
+    resolveRedirect();
+
+    return () => {
+      isActive = false;
+    };
+  }, [auth, handleAuthSuccess, toast]);
 
   const onSubmit = async (data: UserFormValue) => {
+    setAuthAlert(null);
     setIsLoading(true);
+
     try {
       if (isSignUp) {
-        if (!data.username || data.username.length < 3) {
-           toast({
-            title: 'Invalid Username',
-            description: 'Username must be at least 3 characters long.',
-            variant: 'destructive',
+        if (!data.username || data.username.trim().length < 3) {
+          setAuthAlert({
+            title: 'Username Too Short',
+            description: 'Choose a username with at least 3 characters.',
           });
           setIsLoading(false);
           return;
         }
+
         if (!data.password) {
-            toast({
-                title: 'Password Required',
-                description: 'Password is required for sign up.',
-                variant: 'destructive',
-            });
-            setIsLoading(false);
-            return;
+          setAuthAlert({
+            title: 'Password Required',
+            description: 'A password is required to create an account.',
+          });
+          setIsLoading(false);
+          return;
         }
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          data.email,
-          data.password
-        );
-        await handleAuthSuccess(userCredential, data.username);
+
+        const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+        await handleAuthSuccess(userCredential, data.username.trim());
       } else {
-         if (!data.password) {
-            toast({
-                title: 'Password Required',
-                description: 'Password is required for sign in.',
-                variant: 'destructive',
-            });
-            setIsLoading(false);
-            return;
+        if (!data.password) {
+          setAuthAlert({
+            title: 'Password Required',
+            description: 'Enter your password to sign in.',
+          });
+          setIsLoading(false);
+          return;
         }
-        const userCredential = await signInWithEmailAndPassword(
-          auth,
-          data.email,
-          data.password
-        );
+
+        const userCredential = await signInWithEmailAndPassword(auth, data.email, data.password);
         await handleAuthSuccess(userCredential);
       }
-    } catch (error: any) {
-      let title = 'Authentication Error';
-      let description = 'An unexpected error occurred. Please try again.';
-
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          title = 'Email Already in Use';
-          description = 'This email is already associated with an account. Please sign in instead.';
-          break;
-        case 'auth/invalid-credential':
-        case 'auth/user-not-found':
-        case 'auth/wrong-password':
-          title = 'Invalid Credentials';
-          description = 'Invalid credentials. Please check your email and password.';
-          break;
-        default:
-          description = error.message || description;
-          break;
-      }
-      
+    } catch (error) {
+      const details = getAuthErrorDetails(error);
+      setAuthAlert(details);
       toast({
-        title,
-        description,
+        title: details.title,
+        description: details.description,
         variant: 'destructive',
       });
-
     } finally {
       setIsLoading(false);
     }
   };
-  
-  const handleSocialSignIn = async (provider: GoogleAuthProvider) => {
+
+  const handleSocialSignIn = async () => {
+    setAuthAlert(null);
     setIsGoogleLoading(true);
-    await signInWithRedirect(auth, provider);
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      await handleAuthSuccess(result);
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+
+      if (code === 'auth/popup-blocked' || code === 'auth/cancelled-popup-request') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectError) {
+          const details = getAuthErrorDetails(redirectError);
+          setAuthAlert(details);
+          toast({
+            title: details.title,
+            description: details.description,
+            variant: 'destructive',
+          });
+        }
+      } else if (code !== 'auth/popup-closed-by-user') {
+        const details = getAuthErrorDetails(error);
+        setAuthAlert(details);
+        toast({
+          title: details.title,
+          description: details.description,
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleForgotPassword = async () => {
     setResetError(null);
+    setAuthAlert(null);
     const email = getValues('email');
+
     if (!email) {
       setResetError('Please enter your email address to reset your password.');
       return;
@@ -230,21 +309,13 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
     try {
       await sendPasswordResetEmail(auth, email);
       toast({
-        title: 'Password Reset Email Sent',
-        description: 'Check your inbox for a link to reset your password.',
+        title: 'Password Reset Sent',
+        description: 'Check your inbox for a reset link.',
       });
       setIsForgotPassword(false);
-    } catch (error: any) {
-      console.dir(error); // Full error object for debugging
-      let message = 'An unexpected error occurred. Please try again.';
-      if (error.code === 'auth/user-not-found') {
-        message = 'Email not registered.';
-      } else if (error.code === 'auth/invalid-email') {
-        message = 'Please enter a valid email address.';
-      } else if (error.code === 'auth/unauthorized-domain') {
-        message = 'Error: Add this domain to the Firebase Console.';
-      }
-      setResetError(message);
+    } catch (error) {
+      const details = getAuthErrorDetails(error);
+      setResetError(details.description);
     } finally {
       setIsLoading(false);
     }
@@ -252,88 +323,81 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
 
   if (isForgotPassword) {
     return (
-        <div className={cn('grid gap-6', className)} {...props}>
-            <div className="flex flex-col space-y-2 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">
-                    Reset Password
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                    Enter your email to receive a reset link.
-                </p>
-            </div>
-            <div className="grid gap-2">
-                <div className="grid gap-1">
-                    <Label className="sr-only" htmlFor="email">
-                    Email
-                    </Label>
-                    <Input
-                    id="email"
-                    placeholder="name@example.com"
-                    type="email"
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    autoCorrect="off"
-                    disabled={isLoading}
-                    {...register('email')}
-                    />
-                    {errors?.email && (
-                    <p className="px-1 text-xs text-destructive">
-                        {errors.email.message}
-                    </p>
-                    )}
-                    {resetError && (
-                      <p className="px-1 text-xs text-destructive">
-                          {resetError}
-                      </p>
-                    )}
-                </div>
-                <Button disabled={isLoading} onClick={handleForgotPassword}>
-                    {isLoading && (
-                    <svg
-                        className="mr-2 h-4 w-4 animate-spin"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                    >
-                        <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        />
-                        <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        />
-                    </svg>
-                    )}
-                    Send Reset Link
-                </Button>
-            </div>
-             <p className="text-center text-sm">
-                <button
-                className="font-medium text-primary underline-offset-4 hover:underline"
-                onClick={() => {
-                  setIsForgotPassword(false);
-                  setResetError(null);
-                }}
-                >
-                Back to Login
-                </button>
-            </p>
+      <div className={cn('grid gap-6', className)} {...props}>
+        <div className="flex flex-col space-y-2 text-center">
+          <MailCheck className="mx-auto h-8 w-8 text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight">Reset Password</h1>
+          <p className="text-sm text-muted-foreground">Enter your email to receive a reset link.</p>
         </div>
+
+        <div className="grid gap-2">
+          <div className="grid gap-1">
+            <Label className="sr-only" htmlFor="email">
+              Email
+            </Label>
+            <Input
+              id="email"
+              placeholder="name@example.com"
+              type="email"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect="off"
+              disabled={isLoading}
+              {...register('email')}
+            />
+            {errors.email && <p className="px-1 text-xs text-destructive">{errors.email.message}</p>}
+            {resetError && <p className="px-1 text-xs text-destructive">{resetError}</p>}
+          </div>
+
+          <Button disabled={isLoading} onClick={handleForgotPassword}>
+            {isLoading && (
+              <svg
+                className="mr-2 h-4 w-4 animate-spin"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            )}
+            Send Reset Link
+          </Button>
+        </div>
+
+        <p className="text-center text-sm">
+          <button
+            className="font-medium text-primary underline-offset-4 hover:underline"
+            onClick={() => {
+              setIsForgotPassword(false);
+              setResetError(null);
+            }}
+          >
+            Back to Login
+          </button>
+        </p>
+      </div>
     );
   }
 
   return (
     <div className={cn('grid gap-6', className)} {...props}>
+      {authAlert && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>{authAlert.title}</AlertTitle>
+          <AlertDescription>{authAlert.description}</AlertDescription>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="grid gap-4">
           {isSignUp && (
-             <div className="grid gap-1">
+            <div className="grid gap-1">
               <Label className="sr-only" htmlFor="username">
                 Username
               </Label>
@@ -347,13 +411,10 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
                 disabled={isLoading || isGoogleLoading}
                 {...register('username')}
               />
-              {errors?.username && (
-                <p className="px-1 text-xs text-destructive">
-                  {errors.username.message}
-                </p>
-              )}
+              {errors.username && <p className="px-1 text-xs text-destructive">{errors.username.message}</p>}
             </div>
           )}
+
           <div className="grid gap-1">
             <Label className="sr-only" htmlFor="email">
               Email
@@ -368,12 +429,9 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
               disabled={isLoading || isGoogleLoading}
               {...register('email')}
             />
-            {errors?.email && (
-              <p className="px-1 text-xs text-destructive">
-                {errors.email.message}
-              </p>
-            )}
+            {errors.email && <p className="px-1 text-xs text-destructive">{errors.email.message}</p>}
           </div>
+
           <div className="grid gap-1">
             <Label className="sr-only" htmlFor="password">
               Password
@@ -383,30 +441,26 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
               placeholder="Password"
               type="password"
               autoCapitalize="none"
-              autoComplete={isSignUp ? "new-password" : "current-password"}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
               autoCorrect="off"
               disabled={isLoading || isGoogleLoading}
               {...register('password')}
             />
-            {errors?.password && (
-              <p className="px-1 text-xs text-destructive">
-                {errors.password.message}
-              </p>
-            )}
+            {errors.password && <p className="px-1 text-xs text-destructive">{errors.password.message}</p>}
           </div>
 
           {!isSignUp && (
             <div className="flex items-center justify-end -mt-2">
-                <Button
-                    type="button"
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 font-normal"
-                    onClick={() => setIsForgotPassword(true)}
-                    disabled={isLoading || isGoogleLoading}
-                >
-                    Forgot Password?
-                </Button>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto p-0 font-normal"
+                onClick={() => setIsForgotPassword(true)}
+                disabled={isLoading || isGoogleLoading}
+              >
+                Forgot Password?
+              </Button>
             </div>
           )}
 
@@ -418,14 +472,7 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
                 fill="none"
                 viewBox="0 0 24 24"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path
                   className="opacity-75"
                   fill="currentColor"
@@ -433,27 +480,22 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
                 />
               </svg>
             )}
-            {isSignUp ? 'Sign Up with Email' : 'Sign In with Email'}
+            {isSignUp ? 'Create Account' : 'Sign In'}
           </Button>
         </div>
       </form>
+
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">
-            Or continue with
-          </span>
+          <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
         </div>
       </div>
+
       <div className="flex flex-col gap-2">
-        <Button
-          variant="outline"
-          type="button"
-          disabled={isLoading || isGoogleLoading}
-          onClick={() => handleSocialSignIn(new GoogleAuthProvider())}
-        >
+        <Button variant="outline" type="button" disabled={isLoading || isGoogleLoading} onClick={handleSocialSignIn}>
           {isGoogleLoading ? (
             <svg
               className="mr-2 h-4 w-4 animate-spin"
@@ -461,14 +503,7 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
               fill="none"
               viewBox="0 0 24 24"
             >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path
                 className="opacity-75"
                 fill="currentColor"
@@ -495,8 +530,8 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
               />
               <path fill="none" d="M1 1h22v22H1z" />
             </svg>
-          )}{' '}
-          Google
+          )}
+          Continue with Google
         </Button>
       </div>
 
@@ -506,17 +541,23 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
             Already have an account?{' '}
             <button
               className="font-medium text-primary underline-offset-4 hover:underline"
-              onClick={() => setIsSignUp(false)}
+              onClick={() => {
+                setAuthAlert(null);
+                setIsSignUp(false);
+              }}
             >
               Sign In
             </button>
           </p>
         ) : (
           <p>
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <button
               className="font-medium text-primary underline-offset-4 hover:underline"
-              onClick={() => setIsSignUp(true)}
+              onClick={() => {
+                setAuthAlert(null);
+                setIsSignUp(true);
+              }}
             >
               Sign Up
             </button>

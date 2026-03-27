@@ -2,13 +2,6 @@
 
 import React, { useState } from 'react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -18,78 +11,88 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { MoreVertical, Share2, Copy, Trash2, FilePenLine } from 'lucide-react';
+import { Copy, FilePenLine, MoreVertical, Share2, Trash2 } from 'lucide-react';
+import { doc } from 'firebase/firestore';
 import { type Meeting } from '@/lib/types';
+import { formatDateTime } from '@/lib/utils';
+import { meetingStatusLabel, normalizeMeeting } from '@/lib/workflow';
+import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '../icons/whatsapp-icon';
-import { formatDateTime } from '@/lib/utils';
 import EditMeetingSheet from './edit-meeting-sheet';
-import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
 
 interface MeetingItemActionsProps {
   meeting: Meeting;
 }
 
 const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
+  const normalizedMeeting = normalizeMeeting(meeting);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
   const { firestore, user } = useFirebase();
 
-  const formatMeetingForSharing = (m: Meeting): string => {
-    let shareText = `🗓️ Meeting: ${m.title}\n`;
-    if (m.subtitle) shareText += `👥 Subtitle: ${m.subtitle}\n`;
-    shareText += `⏰ Time: ${formatDateTime(m.dateTime)}\n`;
-    shareText += `Status: ${m.isCompleted ? "Completed" : "Pending"}\n\n`;
+  const formatMeetingForSharing = (meetingToShare: Meeting): string => {
+    const normalized = normalizeMeeting(meetingToShare);
+    let shareText = `Meeting: ${normalized.title}\n`;
+    if (normalized.subtitle) shareText += `Agenda: ${normalized.subtitle}\n`;
+    if (normalized.location) shareText += `Location: ${normalized.location}\n`;
+    if (normalized.attendees) shareText += `Attendees: ${normalized.attendees}\n`;
+    shareText += `Time: ${formatDateTime(normalized.dateTime)}\n`;
+    shareText += `Status: ${meetingStatusLabel[normalized.status]}\n\n`;
     shareText += `Created by: ${user?.displayName || 'A colleague'}\n`;
-    shareText += "Shared from TaskMaster Pro";
+    shareText += 'Shared from TaskMaster Pro';
     return shareText;
   };
 
   const handleShare = async (platform: 'whatsapp' | 'native' = 'native') => {
-    const shareText = formatMeetingForSharing(meeting);
+    const shareText = formatMeetingForSharing(normalizedMeeting);
     if (platform === 'whatsapp') {
-        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-        window.open(whatsappUrl, '_blank');
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
     } else if (navigator.share) {
       try {
         await navigator.share({
           title: 'Meeting from TaskMaster Pro',
           text: shareText,
         });
-      } catch (error) {
-        console.error('Error sharing:', error);
+      } catch {
+        // Ignore cancelled shares.
       }
     } else {
-        handleCopy();
-        toast({
-            title: "Sharing not supported",
-            description: "Meeting details copied to clipboard instead.",
-        });
+      handleCopy();
+      toast({
+        title: 'Sharing not supported',
+        description: 'Meeting details were copied to your clipboard instead.',
+      });
     }
   };
 
   const handleCopy = () => {
-    const shareText = formatMeetingForSharing(meeting);
-    navigator.clipboard.writeText(shareText);
+    navigator.clipboard.writeText(formatMeetingForSharing(normalizedMeeting));
     toast({
-      title: "Copied to clipboard",
-      description: "Meeting details have been copied.",
+      title: 'Copied to clipboard',
+      description: 'Meeting details have been copied.',
     });
   };
 
   const handleDelete = () => {
     if (!user) return;
-    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', meeting.id);
+    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', normalizedMeeting.id);
     deleteDocumentNonBlocking(meetingRef);
     setShowDeleteDialog(false);
     toast({
-        title: "Meeting Deleted",
-        description: `"${meeting.title}" has been deleted.`,
-    })
-  }
+      title: 'Meeting Deleted',
+      description: `"${normalizedMeeting.title}" has been deleted.`,
+    });
+  };
 
   const handleEditSuccess = () => {
     setIsEditDialogOpen(false);
@@ -117,7 +120,7 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
             <Share2 className="mr-2 h-4 w-4" />
             <span>Share</span>
           </DropdownMenuItem>
-           <DropdownMenuItem onClick={() => handleShare('whatsapp')}>
+          <DropdownMenuItem onClick={() => handleShare('whatsapp')}>
             <WhatsAppIcon className="mr-2 h-4 w-4" />
             <span>Share to WhatsApp</span>
           </DropdownMenuItem>
@@ -136,27 +139,19 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <EditMeetingSheet
-        isOpen={isEditDialogOpen}
-        setIsOpen={setIsEditDialogOpen}
-        meeting={meeting}
-        onSuccess={handleEditSuccess}
-      />
+      <EditMeetingSheet isOpen={isEditDialogOpen} setIsOpen={setIsEditDialogOpen} meeting={normalizedMeeting} onSuccess={handleEditSuccess} />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Meeting?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{meeting.title}"? This action cannot be undone.
+              Are you sure you want to delete &quot;{normalizedMeeting.title}&quot;? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

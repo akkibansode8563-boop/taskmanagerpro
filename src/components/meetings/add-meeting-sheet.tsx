@@ -4,15 +4,11 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
+import { Plus } from 'lucide-react';
+import { type MeetingStatus } from '@/lib/types';
+import { useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -23,18 +19,35 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useToast } from '@/hooks/use-toast';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp, doc } from 'firebase/firestore';
-import { Plus } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 const meetingSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   subtitle: z.string().nullable(),
+  location: z.string().nullable(),
+  attendees: z.string().nullable(),
   dateTime: z.string().min(1, 'Date and time are required'),
+  status: z.enum(['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
 });
 
 type MeetingFormValues = z.infer<typeof meetingSchema>;
+
+const meetingStatuses: MeetingStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
 export const AddMeetingSheet: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -46,29 +59,40 @@ export const AddMeetingSheet: React.FC = () => {
     defaultValues: {
       title: '',
       subtitle: '',
+      location: '',
+      attendees: '',
       dateTime: '',
+      status: 'SCHEDULED',
     },
   });
 
   const onSubmit = (data: MeetingFormValues) => {
     if (!user) return;
-    
+
     const meetingsCollection = collection(firestore, 'users', user.uid, 'meetings');
     const newMeetingRef = doc(meetingsCollection);
-    
-    setDocumentNonBlocking(newMeetingRef, {
-      ...data,
-      id: newMeetingRef.id,
-      dateTime: new Date(data.dateTime).toISOString(),
-      isCompleted: false,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    }, {});
+
+    setDocumentNonBlocking(
+      newMeetingRef,
+      {
+        id: newMeetingRef.id,
+        title: data.title,
+        subtitle: data.subtitle || null,
+        location: data.location || null,
+        attendees: data.attendees || null,
+        dateTime: new Date(data.dateTime).toISOString(),
+        status: data.status,
+        isCompleted: data.status === 'COMPLETED',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      {}
+    );
 
     setIsOpen(false);
     form.reset();
     toast({
-      title: "Meeting Added",
+      title: 'Meeting Added',
       description: `"${data.title}" has been successfully added.`,
     });
   };
@@ -81,11 +105,11 @@ export const AddMeetingSheet: React.FC = () => {
           Add Meeting
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full sm:max-w-[480px]">
+      <SheetContent className="w-full sm:max-w-[520px]">
         <SheetHeader>
           <SheetTitle>Add New Meeting</SheetTitle>
           <SheetDescription>
-            Fill in the details for your new meeting.
+            Schedule meetings with location, participants, and lifecycle status from the start.
           </SheetDescription>
         </SheetHeader>
         <Form {...form}>
@@ -108,9 +132,61 @@ export const AddMeetingSheet: React.FC = () => {
               name="subtitle"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Subtitle (Optional)</FormLabel>
+                  <FormLabel>Agenda or Subtitle</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Client Intro" {...field} value={field.value ?? ''} />
+                    <Input placeholder="e.g., Client intro and timeline review" {...field} value={field.value ?? ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Google Meet" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {meetingStatuses.map((status) => (
+                          <SelectItem key={status} value={status}>
+                            {status.replace('_', ' ')}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="attendees"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Attendees</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Akshay, Product Team, Client POC" {...field} value={field.value ?? ''} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

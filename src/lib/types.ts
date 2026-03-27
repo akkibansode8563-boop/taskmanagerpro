@@ -1,4 +1,6 @@
 export type TaskPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'COMPLETED';
+export type MeetingStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export type Task = {
   id: string;
@@ -7,9 +9,12 @@ export type Task = {
   dueDate: string;
   reminderTime: string | null;
   priority: TaskPriority;
-  isCompleted: boolean;
+  status?: TaskStatus;
+  category?: string | null;
+  isCompleted?: boolean;
   wasCarriedForward: boolean;
   updatedAt: number;
+  createdAt?: number;
 };
 
 export type Meeting = {
@@ -17,12 +22,14 @@ export type Meeting = {
   title: string;
   subtitle: string | null;
   dateTime: string;
-  isCompleted: boolean;
+  status?: MeetingStatus;
+  location?: string | null;
+  attendees?: string | null;
+  isCompleted?: boolean;
   minutes?: string | null;
   updatedAt: number;
+  createdAt?: number;
 };
 
 export type TaskFilter = 'all' | 'pending' | 'completed';
 export type MeetingFilter = 'all' | 'pending' | 'completed';
-
-    

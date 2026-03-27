@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type Meeting, type MeetingFilter } from '@/lib/types';
+import { isMeetingDone } from '@/lib/workflow';
 import { Badge } from '../ui/badge';
 import EmptyState from '../shared/empty-state';
 import MeetingItem from './meeting-item';
@@ -58,8 +59,8 @@ const MeetingList: React.FC<MeetingListProps> = ({
   const filteredMeetings = useMemo(() => {
     return [...meetings]
       .filter((meeting) => {
-        if (activeTab === 'pending') return !meeting.isCompleted;
-        if (activeTab === 'completed') return meeting.isCompleted;
+        if (activeTab === 'pending') return !isMeetingDone(meeting);
+        if (activeTab === 'completed') return isMeetingDone(meeting);
         return true;
       })
       .filter(
@@ -78,8 +79,8 @@ const MeetingList: React.FC<MeetingListProps> = ({
       });
   }, [meetings, activeTab, searchQuery, sortBy]);
 
-  const pendingCount = useMemo(() => meetings.filter((meeting) => !meeting.isCompleted).length, [meetings]);
-  const completedCount = useMemo(() => meetings.filter((meeting) => meeting.isCompleted).length, [meetings]);
+  const pendingCount = useMemo(() => meetings.filter((meeting) => !isMeetingDone(meeting)).length, [meetings]);
+  const completedCount = useMemo(() => meetings.filter((meeting) => isMeetingDone(meeting)).length, [meetings]);
   const allCount = meetings.length;
   const resultLabel = `${filteredMeetings.length} ${filteredMeetings.length === 1 ? 'meeting' : 'meetings'} shown`;
 

@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { doc, serverTimestamp } from 'firebase/firestore';
+import { Bell, CalendarDays, Flag, History, Layers3 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import { type Task } from '@/lib/types';
 import { cn, formatDate } from '@/lib/utils';
-import { CalendarDays, Bell, Flag, History } from 'lucide-react';
+import { normalizeTask, taskStatusLabel } from '@/lib/workflow';
+import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import TaskItemActions from './task-item-actions';
 import FormattedTime from '../shared/formatted-time';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
 
 interface TaskItemProps {
   task: Task;
@@ -24,34 +25,43 @@ const PriorityBadge = ({ priority }: { priority: Task['priority'] }) => {
   };
 
   return (
-    <Badge variant="outline" className={cn("flex items-center gap-1", priorityStyles[priority])}>
+    <Badge variant="outline" className={cn('flex items-center gap-1', priorityStyles[priority])}>
       <Flag className="h-3 w-3" />
       {priority}
     </Badge>
   );
 };
 
+const statusClasses = {
+  TODO: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-800',
+  IN_PROGRESS: 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800',
+  BLOCKED: 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/50 dark:text-rose-300 dark:border-rose-800',
+  COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-800',
+};
+
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
-  const [isCompleted, setIsCompleted] = useState(task.isCompleted);
+  const normalizedTask = normalizeTask(task);
+  const [isCompleted, setIsCompleted] = useState(normalizedTask.status === 'COMPLETED');
   const { firestore, user } = useFirebase();
 
   useEffect(() => {
-    setIsCompleted(task.isCompleted);
-  }, [task.isCompleted]);
+    setIsCompleted(normalizedTask.status === 'COMPLETED');
+  }, [normalizedTask.status]);
 
   const handleStatusChange = (checked: boolean) => {
     if (!user) return;
     setIsCompleted(checked);
     const taskRef = doc(firestore, 'users', user.uid, 'tasks', task.id);
-    updateDocumentNonBlocking(taskRef, { isCompleted: checked });
+    updateDocumentNonBlocking(taskRef, {
+      status: checked ? 'COMPLETED' : 'TODO',
+      isCompleted: checked,
+      updatedAt: serverTimestamp(),
+    });
   };
 
   return (
-    <Card className={cn(
-      "transition-all", 
-      isCompleted && "bg-muted/50"
-    )}>
-      <CardContent className="p-4 flex flex-col gap-4">
+    <Card className={cn('transition-all', isCompleted && 'bg-muted/50')}>
+      <CardContent className="flex flex-col gap-4 p-4">
         <div className="flex items-start gap-4">
           <Checkbox
             id={`task-${task.id}`}
@@ -60,38 +70,46 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
             className="mt-1"
           />
           <div className="flex-1">
-            <label
-              htmlFor={`task-${task.id}`}
-              className={cn(
-                "font-medium leading-none cursor-pointer",
-                isCompleted && "line-through text-muted-foreground"
+            <div className="flex flex-wrap items-center gap-2">
+              <label
+                htmlFor={`task-${task.id}`}
+                className={cn('font-medium leading-none cursor-pointer', isCompleted && 'line-through text-muted-foreground')}
+              >
+                {normalizedTask.name}
+              </label>
+              <Badge variant="outline" className={statusClasses[normalizedTask.status]}>
+                {taskStatusLabel[normalizedTask.status]}
+              </Badge>
+              {normalizedTask.category && (
+                <Badge variant="secondary" className="flex items-center gap-1">
+                  <Layers3 className="h-3 w-3" />
+                  {normalizedTask.category}
+                </Badge>
               )}
-            >
-              {task.name}
-            </label>
-            {task.details && (
-              <p className={cn("text-sm text-muted-foreground mt-1", isCompleted && "line-through")}>
-                {task.details}
+            </div>
+            {normalizedTask.details && (
+              <p className={cn('mt-1 text-sm text-muted-foreground', isCompleted && 'line-through')}>
+                {normalizedTask.details}
               </p>
             )}
           </div>
-          <TaskItemActions task={task} />
+          <TaskItemActions task={normalizedTask} />
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground pl-10">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-10 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <CalendarDays className="h-4 w-4" />
-            <span>{formatDate(task.dueDate)}</span>
+            <span>{formatDate(normalizedTask.dueDate)}</span>
           </div>
-          {task.reminderTime && (
+          {normalizedTask.reminderTime && (
             <div className="flex items-center gap-1.5">
               <Bell className="h-4 w-4" />
-              <FormattedTime date={task.reminderTime} />
+              <FormattedTime date={normalizedTask.reminderTime} />
             </div>
           )}
-          <PriorityBadge priority={task.priority} />
-          {task.wasCarriedForward && (
-             <Badge variant="secondary" className="flex items-center gap-1.5">
+          <PriorityBadge priority={normalizedTask.priority} />
+          {normalizedTask.wasCarriedForward && (
+            <Badge variant="secondary" className="flex items-center gap-1.5">
               <History className="h-3 w-3" />
               Carried Forward
             </Badge>

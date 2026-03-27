@@ -6,7 +6,7 @@ import type { Meeting, MeetingFilter } from '@/lib/types';
 import MeetingList from '@/components/meetings/meeting-list';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, orderBy, query } from 'firebase/firestore';
 import { AddMeetingSheet } from '@/components/meetings/add-meeting-sheet';
 
 function MeetingsPageContent() {
@@ -16,7 +16,7 @@ function MeetingsPageContent() {
   const { firestore, user } = useFirebase();
 
   const meetingsCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'meetings') : null),
+    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('updatedAt', 'desc')) : null),
     [firestore, user]
   );
   const { data: meetings, isLoading } = useCollection<Meeting>(meetingsCollection);

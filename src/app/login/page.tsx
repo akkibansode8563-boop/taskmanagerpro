@@ -1,38 +1,72 @@
-import { AuthForm } from "@/components/auth/auth-form";
-import { ClipboardCheck } from "lucide-react";
+import { ArrowRight, CalendarClock, ClipboardCheck, ShieldCheck } from 'lucide-react';
+import { AuthForm } from '@/components/auth/auth-form';
+import { Badge } from '@/components/ui/badge';
 
 export default function LoginPage() {
   return (
-    <div className="container relative flex min-h-[calc(100vh-theme(spacing.24))] flex-col items-center justify-center md:min-h-[calc(100vh-theme(spacing.16))]">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-        <div className="flex flex-col space-y-2 text-center">
-          <ClipboardCheck className="mx-auto h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome to TaskMaster Pro
+    <div className="container grid min-h-[calc(100vh-theme(spacing.24))] gap-10 py-10 md:min-h-[calc(100vh-theme(spacing.16))] md:grid-cols-[1.05fr_0.95fr] md:items-center">
+      <section className="space-y-8">
+        <Badge variant="outline" className="rounded-full px-4 py-1 text-sm">
+          Studio workflow, upgraded
+        </Badge>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
+              <ClipboardCheck className="h-8 w-8" />
+            </div>
+            <span className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">
+              TaskMaster Pro
+            </span>
+          </div>
+
+          <h1 className="max-w-xl text-4xl font-semibold tracking-tight md:text-5xl">
+            Run tasks, meetings, and your daily execution from one calm workspace.
           </h1>
+          <p className="max-w-xl text-base leading-7 text-muted-foreground">
+            Sign in with Google or email to manage priorities, track overdue work, and keep your weekly focus visible at a glance.
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+            <CalendarClock className="h-5 w-5 text-primary" />
+            <p className="mt-3 font-medium">Weekly focus</p>
+            <p className="mt-1 text-sm text-muted-foreground">See what needs attention today and what is coming next.</p>
+          </div>
+          <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            <p className="mt-3 font-medium">Secure sign-in</p>
+            <p className="mt-1 text-sm text-muted-foreground">Use Google or email with clearer recovery and session handling.</p>
+          </div>
+          <div className="rounded-2xl border bg-card/70 p-4 shadow-sm">
+            <ArrowRight className="h-5 w-5 text-primary" />
+            <p className="mt-3 font-medium">Faster follow-through</p>
+            <p className="mt-1 text-sm text-muted-foreground">Move from planning to execution without context switching.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-md rounded-[28px] border bg-card/95 p-6 shadow-xl backdrop-blur md:p-8">
+        <div className="mb-6 flex flex-col space-y-2 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">Welcome back</h2>
           <p className="text-sm text-muted-foreground">
-            Enter your email below to sign in or create your account
+            Sign in to open your dashboard or create a new account in a minute.
           </p>
         </div>
         <AuthForm />
-        <p className="px-8 text-center text-sm text-muted-foreground">
-          By clicking continue, you agree to our{" "}
-          <a
-            href="/terms"
-            className="underline underline-offset-4 hover:text-primary"
-          >
+        <p className="mt-6 px-4 text-center text-sm text-muted-foreground">
+          By continuing, you agree to our{' '}
+          <a href="/terms" className="underline underline-offset-4 hover:text-primary">
             Terms of Service
-          </a>{" "}
-          and{" "}
-          <a
-            href="/privacy"
-            className="underline underline-offset-4 hover:text-primary"
-          >
+          </a>{' '}
+          and{' '}
+          <a href="/privacy" className="underline underline-offset-4 hover:text-primary">
             Privacy Policy
           </a>
           .
         </p>
-      </div>
+      </section>
     </div>
   );
 }

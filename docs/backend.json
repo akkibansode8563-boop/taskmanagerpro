@@ -1,0 +1,165 @@
+{
+  "entities": {
+    "Task": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Task",
+      "type": "object",
+      "description": "Represents a task to be managed, containing details such as name, description, due date, and status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Task entity."
+        },
+        "taskName": {
+          "type": "string",
+          "description": "The name of the task."
+        },
+        "subDetails": {
+          "type": "string",
+          "description": "Additional details or a description of the task.",
+          "format": "string"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date when the task is due.",
+          "format": "date-time"
+        },
+        "reminderTime": {
+          "type": "string",
+          "description": "The time to remind the user about the task.",
+          "format": "date-time"
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the task is completed or not. Defaults to false."
+        },
+        "priority": {
+          "type": "string",
+          "description": "The priority of the task (e.g., HIGH, MEDIUM, LOW)."
+        },
+        "wasCarriedForward": {
+          "type": "boolean",
+          "description": "Indicates if the task was automatically carried forward from a previous day."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the task was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "taskName",
+        "dueDate",
+        "isCompleted",
+        "createdAt",
+        "updatedAt",
+        "priority"
+      ]
+    },
+    "Meeting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Meeting",
+      "type": "object",
+      "description": "Represents a scheduled meeting with details such as title, date, time and status.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Meeting entity."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the meeting."
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "A subtitle or description for the meeting."
+        },
+        "dateTime": {
+          "type": "string",
+          "description": "The date and time when the meeting is scheduled.",
+          "format": "date-time"
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "Indicates whether the meeting is completed or not. Defaults to false."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the meeting was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the meeting was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "dateTime",
+        "isCompleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous",
+      "google.com"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Stores task entities for a specific user.  Enables path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/meetings/{meetingId}",
+        "definition": {
+          "entityName": "Meeting",
+          "schema": {
+            "$ref": "#/backend/entities/Meeting"
+          },
+          "description": "Stores meeting entities for a specific user. Enables path-based ownership for simple security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "meetingId",
+              "description": "The unique identifier for the meeting."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to ensure security, scalability, and ease of debugging, adhering to the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). It leverages denormalization and structural segregation to simplify security rules and maintain data integrity.\n\nAuthorization Independence is achieved through denormalization. Task and Meeting documents are stored within user-specific subcollections, eliminating the need for `get()` calls in security rules. Each task and meeting includes only data relevant to the user, ensuring rules can be applied without checking parent document attributes.\n\nStructural Segregation is maintained by storing tasks and meetings in separate collections, `/users/{userId}/tasks` and `/users/{userId}/meetings`, respectively. This ensures that all documents within each collection have identical security requirements, simplifying rules.\n\nQAPs are supported via structural segregation. List operations are inherently secure because each collection contains documents with the same access control requirements.\n\nOverall, this structure minimizes complexity, enhances security, and supports atomic operations, making it easier to manage and debug security rules."
+  }
+}

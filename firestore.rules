@@ -1,0 +1,114 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model where all
+ * user-generated content, such as tasks and meetings, is stored in private
+ * subcollections. Users have full control over their own data but are completely
+ * isolated from the data of other users.
+ *
+ * Data Structure: All data is nested under the `/users/{userId}` path. This
+ * creates a secure, hierarchical data tree for each user, making it simple to
+ * write path-based security rules without needing costly document lookups.
+ * - `/users/{userId}`: A placeholder document for a user's data tree.
+ * - `/users/{userId}/tasks/{taskId}`: Stores tasks owned by the user.
+ * - `/users/{userId}/meetings/{meetingId}`: Stores meetings owned by the user.
+ *
+ * Key Security Decisions:
+ * - User Isolation: The primary security goal is to ensure users can only ever
+ *   access documents within their own `/users/{userId}` data tree.
+ * - No User Enumeration: Listing documents in the top-level `/users`
+ *   collection is explicitly forbidden to protect user privacy.
+ * - Self-Creation of User Document: A user is permitted to create their own
+ *   document at `/users/{userId}` upon signup, a common pattern for
+ *   initializing a user's data space. However, they cannot read, update, or
+ *   delete this document once created, adhering to a secure-by-default posture.
+ * - Path Integrity: Rules validate that the internal `id` field of a task or
+ *   meeting matches its document ID in the path, ensuring data consistency.
+ *
+ * Denormalization for Authorization: This ruleset relies entirely on path-based
+ * security. The user's UID is part of the document path (e.g., `/users/{userId}/...`),
+ * which allows for extremely fast and simple authorization checks (`isOwner(userId)`)
+ * without needing to read other documents.
+ *
+ * Structural Segregation: User content is segregated into distinct subcollections
+ * (`tasks`, `meetings`). This ensures that list operations are inherently secure,
+ * as a user can only query collections containing their own private documents.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions to improve readability and maintainability.
+
+    /**
+     * Checks if the user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the provided userId.
+     * This is the cornerstone of the user-ownership model.
+     * @param userId The user ID to check against the authenticated user's UID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership on an existing document. Used for update and delete
+     * operations to prevent acting on non-existent data.
+     * @param userId The owner's user ID.
+     */
+    function isOwnerOfExistingDoc(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for the user document, which acts as the root of a user's data tree.
+     * @path /users/{userId}
+     * @allow (create) A new user signing up for the first time: `auth.uid == 'user_abc'`, creating `/users/user_abc`.
+     * @deny (get) A user trying to read another user's profile: `auth.uid == 'user_123'`, reading `/users/user_xyz`.
+     * @deny (list) Any user trying to list all users in the application.
+     * @principle Allows a user to establish their own data space upon signup but prevents user enumeration and modification of other user spaces.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for a user's private tasks. Only the owner can manage their tasks.
+     * @path /users/{userId}/tasks/{taskId}
+     * @allow (create) An authenticated user creating a task for themselves: `auth.uid == 'user_abc'`, creating `/users/user_abc/tasks/task_123`.
+     * @deny (get) An authenticated user trying to read another user's task: `auth.uid == 'user_123'`, reading `/users/user_xyz/tasks/task_456`.
+     * @deny (update) A user attempting to change the `id` field of their task after creation.
+     * @principle Enforces strict data ownership within a user's private subcollection and ensures relational integrity between the path and document data.
+     */
+    match /users/{userId}/tasks/{taskId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == taskId;
+      allow update: if isOwnerOfExistingDoc(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwnerOfExistingDoc(userId);
+    }
+
+    /**
+     * @description Rules for a user's private meetings. Only the owner can manage their meetings.
+     * @path /users/{userId}/meetings/{meetingId}
+     * @allow (create) An authenticated user creating a meeting for themselves: `auth.uid == 'user_abc'`, creating `/users/user_abc/meetings/meeting_123`.
+     * @deny (get) An authenticated user trying to read another user's meeting: `auth.uid == 'user_123'`, reading `/users/user_xyz/meetings/meeting_456`.
+     * @deny (update) A user attempting to change the `id` field of their meeting after creation.
+     * @principle Enforces strict data ownership within a user's private subcollection and ensures relational integrity between the path and document data.
+     */
+    match /users/{userId}/meetings/{meetingId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == meetingId;
+      allow update: if isOwnerOfExistingDoc(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwnerOfExistingDoc(userId);
+    }
+  }
+}

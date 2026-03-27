@@ -2,19 +2,18 @@
 
 ## Core Features:
 
-- User Authentication: Secure user registration and login via Firebase Auth.
-- Task Management: Create, edit, and manage tasks with name, sub-details, due date, reminder, and status.
-- Meeting Management: Schedule and manage meetings with title, subtitle, date, time, and status.
-- Smart Task Carry-Forward: Automatically carry forward incomplete tasks to the next day using WorkManager.
-- Dashboard Stats: Display aggregated stats with tap navigation on clickable cards, such as total pending and completed tasks and meetings. Stats are animated upon loading the screen.
-- Share Tasks/Meetings: Share tasks or meeting details via WhatsApp or other apps using Android Share Sheet with formatted content.
+- User Authentication: Secure email/password and Google sign-in through Supabase Auth.
+- Task Management: Create, edit, and manage tasks with names, details, categories, due dates, reminders, priorities, and multi-step statuses.
+- Meeting Management: Schedule and manage meetings with title, subtitle, attendees, location, minutes, and lifecycle statuses.
+- Smart Productivity Dashboard: Surface overdue work, completion rates, daily agenda, focus mixes, and trend charts.
+- Realtime Updates: Keep task and meeting views fresh with Supabase Postgres change subscriptions.
+- Share Tasks/Meetings: Share formatted task or meeting details through the browser share sheet and messaging apps.
 
 ## Style Guidelines:
 
-- Primary color: Deep indigo (#3F51B5) to convey professionalism and focus.
-- Background color: Light gray (#F5F5F5) for a clean, modern interface.
-- Accent color: Muted violet (#9575CD) for interactive elements.
-- Body and headline font: 'Inter', a grotesque-style sans-serif, for a machined, neutral and modern look.
-- Use Material Design icons to maintain consistency and clarity across the app.
-- Implement a clean, card-based layout with ample spacing for a professional Material 3 design.
-- GSAP-style subtle animations for greeting text and loading states to enhance user engagement.
+- Primary color: Rich navy (#132338) for focus and trust.
+- Background treatment: Layered deep-blue gradients with soft radial highlights to avoid flat screens.
+- Accent color: Electric blue (#4A86FF) for primary actions and chart emphasis.
+- Typography: Modern sans-serif with strong dashboard hierarchy and roomy numeric displays.
+- Interface language: Intentional, card-based productivity surfaces with polished empty states and clear status chips.
+- Motion: Lightweight staggered entrances and number animations that communicate progress without slowing interaction.

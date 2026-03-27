@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { doc, serverTimestamp } from 'firebase/firestore';
 import { Calendar, MapPin, NotebookPen, Users } from 'lucide-react';
 import { AddMinutesDialog } from '@/components/meetings/add-minutes-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { type Meeting } from '@/lib/types';
 import { cn, formatDateTime } from '@/lib/utils';
 import { meetingStatusLabel, normalizeMeeting } from '@/lib/workflow';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { updateMeetingRecord, useUser } from '@/supabase';
 import MeetingItemActions from './meeting-item-actions';
 
 interface MeetingItemProps {
@@ -29,21 +28,22 @@ const MeetingItem: React.FC<MeetingItemProps> = ({ meeting }) => {
   const normalizedMeeting = normalizeMeeting(meeting);
   const [isCompleted, setIsCompleted] = useState(normalizedMeeting.status === 'COMPLETED');
   const [isMinutesDialogOpen, setIsMinutesDialogOpen] = useState(false);
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
 
   useEffect(() => {
     setIsCompleted(normalizedMeeting.status === 'COMPLETED');
   }, [normalizedMeeting.status]);
 
-  const handleStatusChange = (checked: boolean) => {
+  const handleStatusChange = async (checked: boolean) => {
     if (!user) return;
     setIsCompleted(checked);
-    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', meeting.id);
-    updateDocumentNonBlocking(meetingRef, {
-      status: checked ? 'COMPLETED' : 'SCHEDULED',
-      isCompleted: checked,
-      updatedAt: serverTimestamp(),
-    });
+    try {
+      await updateMeetingRecord(normalizedMeeting, {
+        status: checked ? 'COMPLETED' : 'SCHEDULED',
+      });
+    } catch {
+      setIsCompleted(!checked);
+    }
   };
 
   const handleMinutesSuccess = () => {

@@ -1,30 +1,29 @@
 'use client';
 
 import { useEffect, useMemo, type ReactNode } from 'react';
-import { collection } from 'firebase/firestore';
-import { usePathname, useRouter } from 'next/navigation';
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
-import { useCollection, useFirebase, useMemoFirebase, useUser } from '@/firebase';
+import { usePathname, useRouter } from 'next/navigation';
+import { ensureProfile, useTasks, useUser } from '@/supabase';
 import { useToast } from '@/hooks/use-toast';
-import type { Task } from '@/lib/types';
 
 const publicRoutes = new Set(['/login', '/terms', '/privacy']);
 const notificationStorageKey = 'taskmaster.notifications.prompted';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
-  const { firestore } = useFirebase();
+  const { data: tasks } = useTasks('updated');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   const isPublicRoute = useMemo(() => publicRoutes.has(pathname), [pathname]);
 
-  const tasksCollection = useMemoFirebase(
-    () => (user ? collection(firestore, 'users', user.uid, 'tasks') : null),
-    [firestore, user]
-  );
-  const { data: tasks } = useCollection<Task>(tasksCollection);
+  useEffect(() => {
+    if (!user) return;
+    ensureProfile(user).catch(() => {
+      // Keep session usable even if profile sync is temporarily unavailable.
+    });
+  }, [user]);
 
   useEffect(() => {
     if (isUserLoading) return;
@@ -70,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isPublicRoute, toast, user]);
 
   useEffect(() => {
-    if (!tasks || !user || typeof window === 'undefined' || !('Notification' in window)) {
+    if (!tasks || typeof window === 'undefined' || !('Notification' in window)) {
       return;
     }
 
@@ -82,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const now = Date.now();
 
       tasks.forEach((task) => {
-        if (!task.reminderTime || task.isCompleted) return;
+        if (!task.reminderTime || task.status === 'COMPLETED') return;
 
         const reminderTime = new Date(task.reminderTime).getTime();
         const storageKey = `taskmaster.notified.${task.id}.${reminderTime}`;
@@ -101,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const intervalId = window.setInterval(notifyDueTasks, 60_000);
 
     return () => window.clearInterval(intervalId);
-  }, [tasks, user]);
+  }, [tasks]);
 
   if (isUserLoading) {
     return (
@@ -124,13 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!user && !isPublicRoute) {
-    return null;
-  }
-
-  if (user && isPublicRoute) {
-    return null;
-  }
+  if (!user && !isPublicRoute) return null;
+  if (user && isPublicRoute) return null;
 
   return <>{children}</>;
 }

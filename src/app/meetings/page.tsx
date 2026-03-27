@@ -2,24 +2,17 @@
 
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import type { Meeting, MeetingFilter } from '@/lib/types';
+import type { MeetingFilter } from '@/lib/types';
 import MeetingList from '@/components/meetings/meeting-list';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, orderBy, query } from 'firebase/firestore';
 import { AddMeetingSheet } from '@/components/meetings/add-meeting-sheet';
+import { useMeetings } from '@/supabase';
 
 function MeetingsPageContent() {
   const searchParams = useSearchParams();
   const initialFilter = (searchParams.get('filter') ?? 'pending') as MeetingFilter;
   const initialSearch = searchParams.get('search') ?? '';
-  const { firestore, user } = useFirebase();
-
-  const meetingsCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('updatedAt', 'desc')) : null),
-    [firestore, user]
-  );
-  const { data: meetings, isLoading } = useCollection<Meeting>(meetingsCollection);
+  const { data: meetings, isLoading } = useMeetings('updated');
 
   return (
     <MeetingList

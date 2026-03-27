@@ -20,14 +20,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Copy, FilePenLine, MoreVertical, Share2, Trash2 } from 'lucide-react';
-import { doc } from 'firebase/firestore';
 import { type Meeting } from '@/lib/types';
 import { formatDateTime } from '@/lib/utils';
 import { meetingStatusLabel, normalizeMeeting } from '@/lib/workflow';
-import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '../icons/whatsapp-icon';
 import EditMeetingSheet from './edit-meeting-sheet';
+import { deleteMeetingRecord, useUser } from '@/supabase';
 
 interface MeetingItemActionsProps {
   meeting: Meeting;
@@ -38,7 +37,7 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
 
   const formatMeetingForSharing = (meetingToShare: Meeting): string => {
     const normalized = normalizeMeeting(meetingToShare);
@@ -48,7 +47,7 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
     if (normalized.attendees) shareText += `Attendees: ${normalized.attendees}\n`;
     shareText += `Time: ${formatDateTime(normalized.dateTime)}\n`;
     shareText += `Status: ${meetingStatusLabel[normalized.status]}\n\n`;
-    shareText += `Created by: ${user?.displayName || 'A colleague'}\n`;
+    shareText += `Created by: ${(user?.user_metadata?.display_name as string | undefined) || user?.email || 'A colleague'}\n`;
     shareText += 'Shared from TaskMaster Pro';
     return shareText;
   };
@@ -83,15 +82,22 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!user) return;
-    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', normalizedMeeting.id);
-    deleteDocumentNonBlocking(meetingRef);
-    setShowDeleteDialog(false);
-    toast({
-      title: 'Meeting Deleted',
-      description: `"${normalizedMeeting.title}" has been deleted.`,
-    });
+    try {
+      await deleteMeetingRecord(normalizedMeeting.id);
+      setShowDeleteDialog(false);
+      toast({
+        title: 'Meeting Deleted',
+        description: `"${normalizedMeeting.title}" has been deleted.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not delete meeting',
+        description: (error as { message?: string })?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditSuccess = () => {

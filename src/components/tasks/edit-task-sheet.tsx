@@ -5,11 +5,10 @@ import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Bell } from 'lucide-react';
 import { type Task, type TaskPriority, type TaskStatus } from '@/lib/types';
 import { normalizeTask } from '@/lib/workflow';
-import { useFirebase } from '@/firebase';
+import { updateTaskRecord, useUser } from '@/supabase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -63,7 +62,7 @@ const taskStatuses: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED
 const priorities: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 const EditTaskSheet: React.FC<EditTaskSheetProps> = ({ isOpen, setIsOpen, task, onSuccess }) => {
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const form = useForm<TaskFormValues>({
@@ -99,8 +98,7 @@ const EditTaskSheet: React.FC<EditTaskSheetProps> = ({ isOpen, setIsOpen, task, 
       }
     }
 
-    const taskRef = doc(firestore, 'users', user.uid, 'tasks', editingTask.id);
-    await updateDoc(taskRef, {
+    await updateTaskRecord(editingTask, {
       name: data.name,
       details: data.details,
       category: data.category || null,
@@ -108,8 +106,6 @@ const EditTaskSheet: React.FC<EditTaskSheetProps> = ({ isOpen, setIsOpen, task, 
       reminderTime: reminderDateTime,
       priority: data.priority,
       status: data.status,
-      isCompleted: data.status === 'COMPLETED',
-      updatedAt: serverTimestamp(),
     });
 
     onSuccess();

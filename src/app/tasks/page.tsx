@@ -2,23 +2,16 @@
 import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TaskList from '@/components/tasks/task-list';
-import type { Task, TaskFilter } from '@/lib/types';
+import type { TaskFilter } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection, orderBy, query } from 'firebase/firestore';
 import { AddTaskSheet } from '@/components/tasks/add-task-sheet';
+import { useTasks } from '@/supabase';
 
 function TasksPageContent() {
   const searchParams = useSearchParams();
   const initialFilter = (searchParams.get('filter') ?? 'pending') as TaskFilter;
   const initialSearch = searchParams.get('search') ?? '';
-  const { firestore, user } = useFirebase();
-
-  const tasksCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('updatedAt', 'desc')) : null),
-    [firestore, user]
-  );
-  const { data: tasks, isLoading } = useCollection<Task>(tasksCollection);
+  const { data: tasks, isLoading } = useTasks('updated');
   
   return (
       <TaskList

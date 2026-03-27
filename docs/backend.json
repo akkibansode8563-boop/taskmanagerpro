@@ -1,10 +1,41 @@
 {
   "entities": {
+    "Profile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Profile",
+      "type": "object",
+      "description": "Represents the authenticated user profile mirrored from Supabase Auth into the public schema.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Supabase auth user UUID."
+        },
+        "email": {
+          "type": "string",
+          "description": "Primary email address for the user."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Preferred display name shown in the UI."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
     "Task": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Task",
       "type": "object",
-      "description": "Represents a task to be managed, containing details such as name, description, due date, and status.",
+      "description": "Represents a task to be managed, containing details such as name, description, due date, priority, and workflow status.",
       "properties": {
         "id": {
           "type": "string",
@@ -29,13 +60,28 @@
           "description": "The time to remind the user about the task.",
           "format": "date-time"
         },
-        "isCompleted": {
-          "type": "boolean",
-          "description": "Indicates whether the task is completed or not. Defaults to false."
+        "status": {
+          "type": "string",
+          "description": "Workflow status for the task.",
+          "enum": [
+            "TODO",
+            "IN_PROGRESS",
+            "BLOCKED",
+            "COMPLETED"
+          ]
         },
         "priority": {
           "type": "string",
-          "description": "The priority of the task (e.g., HIGH, MEDIUM, LOW)."
+          "description": "The priority of the task (e.g., HIGH, MEDIUM, LOW).",
+          "enum": [
+            "HIGH",
+            "MEDIUM",
+            "LOW"
+          ]
+        },
+        "category": {
+          "type": "string",
+          "description": "Optional task category used for filtering and reporting."
         },
         "wasCarriedForward": {
           "type": "boolean",
@@ -56,7 +102,7 @@
         "id",
         "taskName",
         "dueDate",
-        "isCompleted",
+        "status",
         "createdAt",
         "updatedAt",
         "priority"
@@ -66,7 +112,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Meeting",
       "type": "object",
-      "description": "Represents a scheduled meeting with details such as title, date, time and status.",
+      "description": "Represents a scheduled meeting with details such as title, scheduling data, meeting notes, and status.",
       "properties": {
         "id": {
           "type": "string",
@@ -85,9 +131,27 @@
           "description": "The date and time when the meeting is scheduled.",
           "format": "date-time"
         },
-        "isCompleted": {
-          "type": "boolean",
-          "description": "Indicates whether the meeting is completed or not. Defaults to false."
+        "status": {
+          "type": "string",
+          "description": "Workflow status for the meeting.",
+          "enum": [
+            "SCHEDULED",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "CANCELLED"
+          ]
+        },
+        "location": {
+          "type": "string",
+          "description": "Optional meeting location."
+        },
+        "attendees": {
+          "type": "string",
+          "description": "Optional comma-separated attendee list."
+        },
+        "minutes": {
+          "type": "string",
+          "description": "Optional notes or meeting minutes."
         },
         "createdAt": {
           "type": "string",
@@ -104,7 +168,7 @@
         "id",
         "title",
         "dateTime",
-        "isCompleted",
+        "status",
         "createdAt",
         "updatedAt"
       ]
@@ -113,53 +177,24 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous",
-      "google.com"
+      "google"
     ]
   },
-  "firestore": {
-    "structure": [
+  "supabase": {
+    "tables": [
       {
-        "path": "/users/{userId}/tasks/{taskId}",
-        "definition": {
-          "entityName": "Task",
-          "schema": {
-            "$ref": "#/backend/entities/Task"
-          },
-          "description": "Stores task entities for a specific user.  Enables path-based ownership for simple security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the task."
-            }
-          ]
-        }
+        "name": "profiles",
+        "description": "Public profile mirror keyed by auth user UUID."
       },
       {
-        "path": "/users/{userId}/meetings/{meetingId}",
-        "definition": {
-          "entityName": "Meeting",
-          "schema": {
-            "$ref": "#/backend/entities/Meeting"
-          },
-          "description": "Stores meeting entities for a specific user. Enables path-based ownership for simple security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "meetingId",
-              "description": "The unique identifier for the meeting."
-            }
-          ]
-        }
+        "name": "tasks",
+        "description": "User-owned task records secured by row level security on user_id."
+      },
+      {
+        "name": "meetings",
+        "description": "User-owned meeting records secured by row level security on user_id."
       }
     ],
-    "reasoning": "The Firestore data structure is designed to ensure security, scalability, and ease of debugging, adhering to the core design principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). It leverages denormalization and structural segregation to simplify security rules and maintain data integrity.\n\nAuthorization Independence is achieved through denormalization. Task and Meeting documents are stored within user-specific subcollections, eliminating the need for `get()` calls in security rules. Each task and meeting includes only data relevant to the user, ensuring rules can be applied without checking parent document attributes.\n\nStructural Segregation is maintained by storing tasks and meetings in separate collections, `/users/{userId}/tasks` and `/users/{userId}/meetings`, respectively. This ensures that all documents within each collection have identical security requirements, simplifying rules.\n\nQAPs are supported via structural segregation. List operations are inherently secure because each collection contains documents with the same access control requirements.\n\nOverall, this structure minimizes complexity, enhances security, and supports atomic operations, making it easier to manage and debug security rules."
+    "reasoning": "The Supabase schema uses row level security with ownership policies on profiles, tasks, and meetings so every query is scoped by auth.uid(). Tasks and meetings are normalized into top-level relational tables with indexes on user_id plus the primary sorting fields, which improves dashboard analytics, list views, and long-term maintainability. This structure supports SQL reporting, simpler migrations, and production-grade access control without embedding authorization rules in document paths."
   }
 }

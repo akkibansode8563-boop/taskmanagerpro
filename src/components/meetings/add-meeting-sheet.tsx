@@ -4,11 +4,10 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { Plus } from 'lucide-react';
 import { type MeetingStatus } from '@/lib/types';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { createMeetingRecord, useUser } from '@/supabase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -51,7 +50,7 @@ const meetingStatuses: MeetingStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED
 
 export const AddMeetingSheet: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const form = useForm<MeetingFormValues>({
@@ -66,35 +65,31 @@ export const AddMeetingSheet: React.FC = () => {
     },
   });
 
-  const onSubmit = (data: MeetingFormValues) => {
+  const onSubmit = async (data: MeetingFormValues) => {
     if (!user) return;
-
-    const meetingsCollection = collection(firestore, 'users', user.uid, 'meetings');
-    const newMeetingRef = doc(meetingsCollection);
-
-    setDocumentNonBlocking(
-      newMeetingRef,
-      {
-        id: newMeetingRef.id,
+    try {
+      await createMeetingRecord(user, {
         title: data.title,
         subtitle: data.subtitle || null,
         location: data.location || null,
         attendees: data.attendees || null,
         dateTime: new Date(data.dateTime).toISOString(),
         status: data.status,
-        isCompleted: data.status === 'COMPLETED',
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      {}
-    );
+      });
 
-    setIsOpen(false);
-    form.reset();
-    toast({
-      title: 'Meeting Added',
-      description: `"${data.title}" has been successfully added.`,
-    });
+      setIsOpen(false);
+      form.reset();
+      toast({
+        title: 'Meeting Added',
+        description: `"${data.title}" has been successfully added.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not add meeting',
+        description: (error as { message?: string })?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

@@ -20,14 +20,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Copy, FilePenLine, MoreVertical, Share2, Trash2 } from 'lucide-react';
-import { doc } from 'firebase/firestore';
 import { type Task } from '@/lib/types';
 import { formatDate, formatTime } from '@/lib/utils';
 import { normalizeTask, taskStatusLabel } from '@/lib/workflow';
-import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '../icons/whatsapp-icon';
 import EditTaskSheet from './edit-task-sheet';
+import { deleteTaskRecord, useUser } from '@/supabase';
 
 interface TaskItemActionsProps {
   task: Task;
@@ -38,7 +37,7 @@ const TaskItemActions: React.FC<TaskItemActionsProps> = ({ task }) => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const { toast } = useToast();
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
 
   const formatTaskForSharing = (taskToShare: Task): string => {
     const normalized = normalizeTask(taskToShare);
@@ -49,7 +48,7 @@ const TaskItemActions: React.FC<TaskItemActionsProps> = ({ task }) => {
     if (normalized.reminderTime) shareText += `Reminder: ${formatTime(normalized.reminderTime)}\n`;
     shareText += `Priority: ${normalized.priority}\n`;
     shareText += `Status: ${taskStatusLabel[normalized.status]}\n\n`;
-    shareText += `Created by: ${user?.displayName || 'A colleague'}\n`;
+    shareText += `Created by: ${(user?.user_metadata?.display_name as string | undefined) || user?.email || 'A colleague'}\n`;
     shareText += 'Shared from TaskMaster Pro';
     return shareText;
   };
@@ -84,15 +83,22 @@ const TaskItemActions: React.FC<TaskItemActionsProps> = ({ task }) => {
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!user) return;
-    const taskRef = doc(firestore, 'users', user.uid, 'tasks', normalizedTask.id);
-    deleteDocumentNonBlocking(taskRef);
-    setShowDeleteDialog(false);
-    toast({
-      title: 'Task Deleted',
-      description: `"${normalizedTask.name}" has been deleted.`,
-    });
+    try {
+      await deleteTaskRecord(normalizedTask.id);
+      setShowDeleteDialog(false);
+      toast({
+        title: 'Task Deleted',
+        description: `"${normalizedTask.name}" has been deleted.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not delete task',
+        description: (error as { message?: string })?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditSuccess = () => {

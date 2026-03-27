@@ -24,9 +24,8 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, serverTimestamp } from 'firebase/firestore';
 import { type Meeting } from '@/lib/types';
+import { updateMeetingMinutes, useUser } from '@/supabase';
 
 const minutesSchema = z.object({
   minutes: z.string().min(1, 'Minutes cannot be empty.'),
@@ -42,7 +41,7 @@ interface AddMinutesDialogProps {
 }
 
 export const AddMinutesDialog: React.FC<AddMinutesDialogProps> = ({ isOpen, setIsOpen, meeting, onSuccess }) => {
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const form = useForm<MinutesFormValues>({
@@ -58,21 +57,23 @@ export const AddMinutesDialog: React.FC<AddMinutesDialogProps> = ({ isOpen, setI
     }
   }, [isOpen, meeting, form]);
 
-  const onSubmit = (data: MinutesFormValues) => {
+  const onSubmit = async (data: MinutesFormValues) => {
     if (!user) return;
 
-    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', meeting.id);
-    
-    updateDocumentNonBlocking(meetingRef, {
-      minutes: data.minutes,
-      updatedAt: serverTimestamp(),
-    });
-
-    onSuccess();
-    toast({
-      title: 'Minutes Saved',
-      description: `The minutes for "${meeting.title}" have been updated.`,
-    });
+    try {
+      await updateMeetingMinutes(meeting.id, data.minutes);
+      onSuccess();
+      toast({
+        title: 'Minutes Saved',
+        description: `The minutes for "${meeting.title}" have been updated.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not save minutes',
+        description: (error as { message?: string })?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

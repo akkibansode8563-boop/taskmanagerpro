@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, ClipboardList, Calendar, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/firebase';
+import { useUser } from '@/supabase';
 
 const MobileNav = () => {
     const pathname = usePathname();

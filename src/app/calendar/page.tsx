@@ -2,25 +2,12 @@
 
 import React from 'react';
 import CalendarView from '@/components/dashboard/calendar-view';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, orderBy, query } from 'firebase/firestore';
-import type { Task, Meeting } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMeetings, useTasks } from '@/supabase';
 
 export default function CalendarPage() {
-  const { firestore, user } = useFirebase();
-
-  const tasksCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('dueDate', 'asc')) : null),
-    [firestore, user]
-  );
-  const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(tasksCollection);
-
-  const meetingsCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('dateTime', 'asc')) : null),
-    [firestore, user]
-  );
-  const { data: meetings, isLoading: meetingsLoading } = useCollection<Meeting>(meetingsCollection);
+  const { data: tasks, isLoading: tasksLoading } = useTasks('due');
+  const { data: meetings, isLoading: meetingsLoading } = useMeetings('scheduled');
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-8">

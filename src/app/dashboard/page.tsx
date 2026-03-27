@@ -1,32 +1,20 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { collection, orderBy, query } from 'firebase/firestore';
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Flame } from 'lucide-react';
 import Greeting from '@/components/dashboard/greeting';
 import Stats from '@/components/dashboard/stats';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { getProductivityInsights } from '@/lib/productivity';
-import type { Meeting, Task } from '@/lib/types';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
+import { useMeetings, useTasks, useUser } from '@/supabase';
 
 export default function DashboardPage() {
-  const { firestore, user } = useFirebase();
-
-  const tasksCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'tasks'), orderBy('updatedAt', 'desc')) : null),
-    [firestore, user]
-  );
-  const { data: tasks, isLoading: tasksLoading } = useCollection<Task>(tasksCollection);
-
-  const meetingsCollection = useMemoFirebase(
-    () => (user ? query(collection(firestore, 'users', user.uid, 'meetings'), orderBy('updatedAt', 'desc')) : null),
-    [firestore, user]
-  );
-  const { data: meetings, isLoading: meetingsLoading } = useCollection<Meeting>(meetingsCollection);
+  const { user } = useUser();
+  const { data: tasks, isLoading: tasksLoading } = useTasks('updated');
+  const { data: meetings, isLoading: meetingsLoading } = useMeetings('updated');
 
   const insights = useMemo(
     () => getProductivityInsights(tasks ?? [], meetings ?? []),
@@ -36,7 +24,7 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto space-y-8 p-4 md:p-8">
-      <Greeting userName={user?.displayName || 'User'} />
+      <Greeting userName={(user?.user_metadata?.display_name as string | undefined) || user?.email?.split('@')[0] || 'User'} />
 
       <Stats
         stats={{

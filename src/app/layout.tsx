@@ -5,9 +5,9 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import AppHeader from '@/components/layout/app-header';
 import AppFooter from '@/components/layout/app-footer';
 import { Toaster } from '@/components/ui/toaster';
-import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import MobileNav from '@/components/layout/mobile-nav';
+import { SupabaseProvider } from '@/supabase';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,16 +19,12 @@ export const metadata: Metadata = {
   description: 'A professional task and meeting management application.',
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} font-body antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <FirebaseClientProvider>
+          <SupabaseProvider>
             <AuthProvider>
               <div className="flex min-h-screen flex-col">
                 <AppHeader />
@@ -38,7 +34,7 @@ export default function RootLayout({
               </div>
               <Toaster />
             </AuthProvider>
-          </FirebaseClientProvider>
+          </SupabaseProvider>
         </ThemeProvider>
       </body>
     </html>

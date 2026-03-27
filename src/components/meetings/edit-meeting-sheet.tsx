@@ -4,10 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { type Meeting, type MeetingStatus } from '@/lib/types';
 import { normalizeMeeting } from '@/lib/workflow';
-import { useFirebase } from '@/firebase';
+import { updateMeetingRecord, useUser } from '@/supabase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -55,7 +54,7 @@ interface EditMeetingSheetProps {
 const meetingStatuses: MeetingStatus[] = ['SCHEDULED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
 const EditMeetingSheet: React.FC<EditMeetingSheetProps> = ({ isOpen, setIsOpen, meeting, onSuccess }) => {
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
   const [editingMeeting, setEditingMeeting] = useState<Meeting | null>(null);
 
   const form = useForm<MeetingFormValues>({
@@ -80,16 +79,13 @@ const EditMeetingSheet: React.FC<EditMeetingSheetProps> = ({ isOpen, setIsOpen, 
   const onSubmit = async (data: MeetingFormValues) => {
     if (!user || !editingMeeting) return;
 
-    const meetingRef = doc(firestore, 'users', user.uid, 'meetings', editingMeeting.id);
-    await updateDoc(meetingRef, {
+    await updateMeetingRecord(editingMeeting, {
       title: data.title,
       subtitle: data.subtitle || null,
       location: data.location || null,
       attendees: data.attendees || null,
       dateTime: new Date(data.dateTime).toISOString(),
       status: data.status,
-      isCompleted: data.status === 'COMPLETED',
-      updatedAt: serverTimestamp(),
     });
 
     onSuccess();

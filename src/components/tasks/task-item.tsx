@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { doc, serverTimestamp } from 'firebase/firestore';
 import { Bell, CalendarDays, Flag, History, Layers3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { type Task } from '@/lib/types';
 import { cn, formatDate } from '@/lib/utils';
 import { normalizeTask, taskStatusLabel } from '@/lib/workflow';
-import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { updateTaskRecord, useUser } from '@/supabase';
 import TaskItemActions from './task-item-actions';
 import FormattedTime from '../shared/formatted-time';
 
@@ -42,21 +41,22 @@ const statusClasses = {
 const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
   const normalizedTask = normalizeTask(task);
   const [isCompleted, setIsCompleted] = useState(normalizedTask.status === 'COMPLETED');
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
 
   useEffect(() => {
     setIsCompleted(normalizedTask.status === 'COMPLETED');
   }, [normalizedTask.status]);
 
-  const handleStatusChange = (checked: boolean) => {
+  const handleStatusChange = async (checked: boolean) => {
     if (!user) return;
     setIsCompleted(checked);
-    const taskRef = doc(firestore, 'users', user.uid, 'tasks', task.id);
-    updateDocumentNonBlocking(taskRef, {
-      status: checked ? 'COMPLETED' : 'TODO',
-      isCompleted: checked,
-      updatedAt: serverTimestamp(),
-    });
+    try {
+      await updateTaskRecord(normalizedTask, {
+        status: checked ? 'COMPLETED' : 'TODO',
+      });
+    } catch {
+      setIsCompleted(!checked);
+    }
   };
 
   return (

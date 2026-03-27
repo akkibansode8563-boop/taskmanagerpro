@@ -5,11 +5,10 @@ import { format, parse } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { collection, doc, serverTimestamp } from 'firebase/firestore';
 import { Bell, Plus } from 'lucide-react';
 import { type TaskPriority, type TaskStatus } from '@/lib/types';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
+import { createTaskRecord, useUser } from '@/supabase';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -58,7 +57,7 @@ const priorities: TaskPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 
 export const AddTaskSheet: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { firestore, user } = useFirebase();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const form = useForm<TaskFormValues>({
@@ -120,7 +119,7 @@ export const AddTaskSheet: React.FC = () => {
     }
   };
 
-  const onSubmit = (data: TaskFormValues) => {
+  const onSubmit = async (data: TaskFormValues) => {
     if (!user) return;
 
     let reminderDateTime = null;
@@ -132,13 +131,8 @@ export const AddTaskSheet: React.FC = () => {
       }
     }
 
-    const tasksCollection = collection(firestore, 'users', user.uid, 'tasks');
-    const newTaskRef = doc(tasksCollection);
-
-    setDocumentNonBlocking(
-      newTaskRef,
-      {
-        id: newTaskRef.id,
+    try {
+      await createTaskRecord(user, {
         name: data.name,
         details: data.details,
         category: data.category || null,
@@ -146,20 +140,21 @@ export const AddTaskSheet: React.FC = () => {
         reminderTime: reminderDateTime,
         priority: data.priority,
         status: data.status,
-        isCompleted: data.status === 'COMPLETED',
-        wasCarriedForward: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      },
-      {}
-    );
+      });
 
-    setIsOpen(false);
-    form.reset();
-    toast({
-      title: 'Task Added',
-      description: `"${data.name}" has been successfully added.`,
-    });
+      setIsOpen(false);
+      form.reset();
+      toast({
+        title: 'Task Added',
+        description: `"${data.name}" has been successfully added.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Could not add task',
+        description: (error as { message?: string })?.message || 'Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const watchEnableReminder = form.watch('enableReminder');

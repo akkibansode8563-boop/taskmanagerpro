@@ -28,7 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <AuthProvider>
               <div className="flex min-h-screen flex-col">
                 <AppHeader />
-                <main className="flex-1 pb-20 md:pb-4">{children}</main>
+                <main className="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</main>
                 <AppFooter />
                 <MobileNav />
               </div>

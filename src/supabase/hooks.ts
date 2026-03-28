@@ -1,12 +1,60 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { mapMeetingRowToMeeting, mapTaskRowToTask, type MeetingRow, type TaskRow } from '@/lib/database';
+import { mapMeetingRowToMeeting, mapTaskRowToTask, type MeetingRow, type ProfileRow, type TaskRow } from '@/lib/database';
 import type { Meeting, Task } from '@/lib/types';
 import { useSupabase } from '@/supabase/provider';
 
 type TaskSort = 'updated' | 'due';
 type MeetingSort = 'updated' | 'scheduled';
+
+export function useProfile() {
+  const { supabase, user, isConfigured } = useSupabase();
+  const [data, setData] = useState<ProfileRow | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user || !isConfigured) {
+      setData(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    const fetchProfile = async () => {
+      setIsLoading(true);
+      const { data: row, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error) {
+        setData(null);
+      } else {
+        setData((row as ProfileRow | null) ?? null);
+      }
+      setIsLoading(false);
+    };
+
+    fetchProfile();
+
+    const channel = supabase
+      .channel(`profile-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, fetchProfile)
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [isConfigured, supabase, user]);
+
+  return { data, isLoading };
+}
 
 export function useTasks(sort: TaskSort = 'updated') {
   const { supabase, user, isConfigured } = useSupabase();

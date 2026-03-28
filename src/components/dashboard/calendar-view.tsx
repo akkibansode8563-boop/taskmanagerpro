@@ -137,14 +137,14 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
   }
 
   return (
-    <div className="rounded-lg bg-card text-card-foreground h-full flex flex-col">
-      <header className="p-4 border-b flex justify-between items-center gap-2 flex-wrap">
+    <div className="flex h-full flex-col rounded-lg bg-card text-card-foreground">
+      <header className="flex flex-col gap-3 border-b p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-2 sm:p-4">
         <h2 className="text-lg font-semibold whitespace-nowrap">
           {format(currentDate, 'MMMM yyyy')}
         </h2>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
            <Select value={String(getMonth(currentDate))} onValueChange={handleMonthChange}>
-              <SelectTrigger className="w-[120px]">
+              <SelectTrigger className="w-[calc(50%-0.25rem)] min-w-[130px] sm:w-[140px]">
                   <SelectValue placeholder="Month" />
               </SelectTrigger>
               <SelectContent>
@@ -154,9 +154,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
                       </SelectItem>
                   ))}
               </SelectContent>
-          </Select>
+           </Select>
            <Select value={String(getYear(currentDate))} onValueChange={handleYearChange}>
-              <SelectTrigger className="w-[90px]">
+              <SelectTrigger className="w-[calc(50%-0.25rem)] min-w-[96px] sm:w-[100px]">
                   <SelectValue placeholder="Year" />
               </SelectTrigger>
               <SelectContent>
@@ -167,7 +167,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
                   ))}
               </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={goToToday}>
+          <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={goToToday}>
             Today
           </Button>
           <Button variant="outline" size="icon" className="h-8 w-8" onClick={prevMonth}>
@@ -179,71 +179,75 @@ const CalendarView: React.FC<CalendarViewProps> = ({ tasks, meetings, isLoading 
         </div>
       </header>
       
-      <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground">
-        {weekDays.map(day => (
-          <div key={day} className="py-2 border-r border-b last:border-r-0">{day}</div>
-        ))}
-      </div>
+      <div className="flex-1 overflow-x-auto">
+        <div className="min-w-[700px]">
+          <div className="grid grid-cols-7 text-center text-sm font-medium text-muted-foreground">
+            {weekDays.map(day => (
+              <div key={day} className="border-b border-r py-2 last:border-r-0">{day}</div>
+            ))}
+          </div>
 
-      <div className="grid grid-cols-7 grid-rows-5 flex-1">
-        {Array.from({ length: startingDayIndex }).map((_, index) => (
-          <div key={`empty-${index}`} className="border-r border-b" />
-        ))}
+          <div className="grid flex-1 grid-cols-7 grid-rows-5">
+            {Array.from({ length: startingDayIndex }).map((_, index) => (
+              <div key={`empty-${index}`} className="border-b border-r" />
+            ))}
 
-        {daysInMonth.map(day => {
-          const dayEvents = events.filter(event => isSameDay(event.date, day));
-          return (
-            <div
-              key={day.toString()}
-              className={cn(
-                'p-2 border-r border-b h-full overflow-y-auto relative',
-                !isSameMonth(day, currentDate) && 'text-muted-foreground',
-              )}
-            >
-              <span
-                className={cn(
-                  'flex items-center justify-center h-6 w-6 rounded-full text-sm mb-1',
-                  isToday(day) && 'bg-primary text-primary-foreground',
-                )}
-              >
-                {format(day, 'd')}
-              </span>
-              <div className="space-y-1">
-                {dayEvents.slice(0, 3).map(event => (
-                  <Popover key={event.id}>
-                    <PopoverTrigger asChild>
-                       <div
-                        className={cn(
-                          'p-1 text-xs rounded-md w-full text-left truncate cursor-pointer',
-                          event.type === 'task' ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300' : 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300',
-                          event.isCompleted && 'line-through opacity-70'
-                        )}
-                      >
-                        {event.title}
-                      </div>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-64">
-                        <div className="flex items-start gap-2 mb-2">
-                           {event.type === 'task' ? <ClipboardList className="h-4 w-4 mt-1 text-red-500" /> : <Calendar className="h-4 w-4 mt-1 text-blue-500" />}
-                            <div>
-                                <h4 className="font-semibold">{event.title}</h4>
-                                <p className="text-sm text-muted-foreground">{format(event.date, 'MMM d, h:mm a')}</p>
+            {daysInMonth.map(day => {
+              const dayEvents = events.filter(event => isSameDay(event.date, day));
+              return (
+                <div
+                  key={day.toString()}
+                  className={cn(
+                    'relative h-full min-h-[120px] overflow-y-auto border-b border-r p-2',
+                    !isSameMonth(day, currentDate) && 'text-muted-foreground',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      'mb-1 flex h-6 w-6 items-center justify-center rounded-full text-sm',
+                      isToday(day) && 'bg-primary text-primary-foreground',
+                    )}
+                  >
+                    {format(day, 'd')}
+                  </span>
+                  <div className="space-y-1">
+                    {dayEvents.slice(0, 3).map(event => (
+                      <Popover key={event.id}>
+                        <PopoverTrigger asChild>
+                           <div
+                            className={cn(
+                              'w-full cursor-pointer truncate rounded-md p-1 text-left text-xs',
+                              event.type === 'task' ? 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
+                              event.isCompleted && 'line-through opacity-70'
+                            )}
+                          >
+                            {event.title}
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64">
+                            <div className="mb-2 flex items-start gap-2">
+                               {event.type === 'task' ? <ClipboardList className="mt-1 h-4 w-4 text-red-500" /> : <Calendar className="mt-1 h-4 w-4 text-blue-500" />}
+                                <div>
+                                    <h4 className="font-semibold">{event.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{format(event.date, 'MMM d, h:mm a')}</p>
+                                </div>
                             </div>
-                        </div>
-                         {event.details && <p className="text-sm">{event.details}</p>}
-                    </PopoverContent>
-                  </Popover>
-                ))}
-                 {dayEvents.length > 3 && (
-                    <div className="text-xs text-muted-foreground p-1">+ {dayEvents.length - 3} more</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-         {Array.from({ length: 42 - daysInMonth.length - startingDayIndex }).map((_, index) => (
-          <div key={`empty-end-${index}`} className="border-r border-b" />
-        ))}
+                             {event.details && <p className="text-sm">{event.details}</p>}
+                        </PopoverContent>
+                      </Popover>
+                    ))}
+                     {dayEvents.length > 3 && (
+                        <div className="p-1 text-xs text-muted-foreground">+ {dayEvents.length - 3} more</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+             {Array.from({ length: 42 - daysInMonth.length - startingDayIndex }).map((_, index) => (
+              <div key={`empty-end-${index}`} className="border-b border-r" />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

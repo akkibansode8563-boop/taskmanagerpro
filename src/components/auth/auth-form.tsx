@@ -277,12 +277,12 @@ export function AuthForm({ className, ...props }: AuthFormProps) {
           {isSignUp && (
             <div className="grid gap-1">
               <Label className="sr-only" htmlFor="username">Username</Label>
-              <Input id="username" placeholder="Username" type="text" disabled={isLoading || isGoogleLoading} {...register('username')} />
+              <Input id="username" placeholder="Choose a username" type="text" autoComplete="username" disabled={isLoading || isGoogleLoading} {...register('username')} />
             </div>
           )}
           <div className="grid gap-1">
             <Label className="sr-only" htmlFor="email">Email</Label>
-            <Input id="email" placeholder="name@example.com" type="email" disabled={isLoading || isGoogleLoading} {...register('email')} />
+            <Input id="email" placeholder="name@example.com" type="email" autoComplete="email" disabled={isLoading || isGoogleLoading} {...register('email')} />
             {errors.email && <p className="px-1 text-xs text-destructive">{errors.email.message}</p>}
           </div>
           <div className="grid gap-1">

@@ -6,13 +6,15 @@ import Greeting from '@/components/dashboard/greeting';
 import Stats from '@/components/dashboard/stats';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getDisplayName } from '@/lib/profile';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { getProductivityInsights } from '@/lib/productivity';
 import { AnalyticsOverview } from '@/components/dashboard/analytics-overview';
-import { useMeetings, useTasks, useUser } from '@/supabase';
+import { useMeetings, useProfile, useTasks, useUser } from '@/supabase';
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const { data: profile } = useProfile();
   const { data: tasks, isLoading: tasksLoading } = useTasks('updated');
   const { data: meetings, isLoading: meetingsLoading } = useMeetings('updated');
 
@@ -23,8 +25,8 @@ export default function DashboardPage() {
   const isLoading = tasksLoading || meetingsLoading;
 
   return (
-    <div className="container mx-auto space-y-8 p-4 md:p-8">
-      <Greeting userName={(user?.user_metadata?.display_name as string | undefined) || user?.email?.split('@')[0] || 'User'} />
+    <div className="container mx-auto space-y-6 px-4 py-4 sm:space-y-8 md:px-6 md:py-8">
+      <Greeting userName={getDisplayName(user, profile)} />
 
       <Stats
         stats={{
@@ -40,7 +42,7 @@ export default function DashboardPage() {
         isLoading={isLoading}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-4 md:gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="border-primary/10 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -58,7 +60,7 @@ export default function DashboardPage() {
               insights.upcomingItems.slice(0, 6).map((item) => (
                 <div
                   key={`${item.kind}-${item.id}`}
-                  className="flex items-start justify-between gap-4 rounded-xl border bg-muted/20 p-4"
+                  className="flex flex-col gap-3 rounded-xl border bg-muted/20 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -75,7 +77,7 @@ export default function DashboardPage() {
                     <p className="font-medium">{item.title}</p>
                     {item.details && <p className="text-sm text-muted-foreground">{item.details}</p>}
                   </div>
-                  <div className="whitespace-nowrap text-right text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground sm:whitespace-nowrap sm:text-right">
                     {item.kind === 'task' ? formatDate(item.date) : formatDateTime(item.date)}
                   </div>
                 </div>
@@ -100,7 +102,7 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-xl bg-rose-50 p-4 dark:bg-rose-950/30">
                   <div className="text-sm text-muted-foreground">Overdue tasks</div>
                   <div className="text-2xl font-semibold">{isLoading ? '--' : insights.overdueTasks}</div>

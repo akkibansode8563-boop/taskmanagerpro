@@ -26,15 +26,15 @@ function MeetingsPageContent() {
 
 export default function MeetingsPage() {
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <div className="flex items-center justify-between space-y-2 mb-6">
+    <div className="container mx-auto px-4 py-4 md:px-6 md:py-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Meetings</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Meetings</h2>
           <p className="text-muted-foreground">
             A place to manage your meetings.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center">
           <AddMeetingSheet />
         </div>
       </div>

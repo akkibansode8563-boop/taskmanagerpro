@@ -58,6 +58,11 @@
     background-image:
       radial-gradient(circle at top, hsl(var(--accent) / 0.6), transparent 30%),
       linear-gradient(to bottom, hsl(var(--background)), hsl(var(--background)));
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 }
 

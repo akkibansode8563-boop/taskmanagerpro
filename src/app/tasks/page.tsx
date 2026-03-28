@@ -26,15 +26,15 @@ function TasksPageContent() {
 
 export default function TasksPage() {
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <div className="flex items-center justify-between space-y-2 mb-6">
+    <div className="container mx-auto px-4 py-4 md:px-6 md:py-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Tasks</h2>
+          <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Tasks</h2>
           <p className="text-muted-foreground">
             Here&apos;s a list of your tasks.
           </p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center">
             <AddTaskSheet />
         </div>
       </div>

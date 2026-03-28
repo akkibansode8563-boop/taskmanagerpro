@@ -22,7 +22,7 @@ const Greeting: React.FC<GreetingProps> = ({ userName }) => {
   const greetingText = `${greeting}, ${userName}!`;
 
   return (
-    <h1 className="text-3xl md:text-4xl font-bold tracking-tighter animate-fade-in-up">
+    <h1 className="text-2xl font-bold tracking-tighter animate-fade-in-up sm:text-3xl md:text-4xl">
       {greetingText}
     </h1>
   );

@@ -10,7 +10,7 @@ export default function CalendarPage() {
   const { data: meetings, isLoading: meetingsLoading } = useMeetings('scheduled');
 
   return (
-    <div className="container mx-auto p-4 md:p-8 space-y-8">
+    <div className="container mx-auto space-y-6 px-4 py-4 md:px-6 md:py-8">
       <Card>
         <CardHeader>
           <CardTitle>Calendar View</CardTitle>
@@ -18,7 +18,7 @@ export default function CalendarPage() {
             A comprehensive overview of your tasks and meetings.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[calc(100vh-20rem)] min-h-[600px]">
+        <CardContent className="h-[calc(100dvh-17rem)] min-h-[420px] px-2 pb-2 sm:px-4 sm:pb-4 md:min-h-[600px]">
           <CalendarView 
             tasks={tasks || []} 
             meetings={meetings || []} 

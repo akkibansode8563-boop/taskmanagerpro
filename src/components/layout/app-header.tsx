@@ -12,9 +12,9 @@ import { useProfile, useSupabaseClient, useUser } from '@/supabase';
 
 function AppLogo({ href }: { href: string }) {
   return (
-    <Link href={href} className="mr-6 flex items-center space-x-2">
-      <ClipboardCheck className="h-6 w-6 text-primary" />
-      <span className="font-bold text-lg bg-gradient-to-r from-sky-600 via-primary to-orange-500 bg-clip-text text-transparent animate-shine bg-[200%_auto]">
+    <Link href={href} className="mr-4 flex min-w-0 items-center space-x-2 md:mr-6">
+      <ClipboardCheck className="h-5 w-5 shrink-0 text-primary md:h-6 md:w-6" />
+      <span className="truncate bg-gradient-to-r from-sky-600 via-primary to-orange-500 bg-[200%_auto] bg-clip-text text-base font-bold text-transparent animate-shine md:text-lg">
         TaskMaster Pro
       </span>
     </Link>

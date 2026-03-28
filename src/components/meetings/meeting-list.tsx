@@ -131,14 +131,14 @@ const MeetingList: React.FC<MeetingListProps> = ({
           placeholder="Search meetings..."
           value={searchQuery}
           onChange={handleSearchChange}
-          className="max-w-sm"
+          className="w-full md:max-w-sm"
         />
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="h-10 px-3 text-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          <Badge variant="outline" className="h-10 justify-center px-3 text-sm sm:justify-start">
             {resultLabel}
           </Badge>
           <Select value={sortBy} onValueChange={(value) => setSortBy(value as MeetingSort)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <ArrowDownUp className="mr-2 h-4 w-4 text-muted-foreground" />
               <SelectValue placeholder="Sort meetings" />
             </SelectTrigger>
@@ -152,19 +152,19 @@ const MeetingList: React.FC<MeetingListProps> = ({
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
           <TabsTrigger value="all">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1 py-1 text-xs sm:flex-row sm:gap-2 sm:text-sm">
               All <Badge variant="secondary">{allCount}</Badge>
             </div>
           </TabsTrigger>
           <TabsTrigger value="pending">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1 py-1 text-xs sm:flex-row sm:gap-2 sm:text-sm">
               Pending <Badge variant="secondary">{pendingCount}</Badge>
             </div>
           </TabsTrigger>
           <TabsTrigger value="completed">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1 py-1 text-xs sm:flex-row sm:gap-2 sm:text-sm">
               Completed <Badge variant="secondary">{completedCount}</Badge>
             </div>
           </TabsTrigger>

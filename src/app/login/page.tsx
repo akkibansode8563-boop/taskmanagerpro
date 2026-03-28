@@ -1,4 +1,5 @@
-import { ArrowRight, CalendarClock, ClipboardCheck, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, CalendarClock, ShieldCheck } from 'lucide-react';
 import { AuthForm } from '@/components/auth/auth-form';
 import { Badge } from '@/components/ui/badge';
 
@@ -11,13 +12,23 @@ export default function LoginPage() {
         </Badge>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="rounded-2xl bg-primary/10 p-3 text-primary">
-              <ClipboardCheck className="h-8 w-8" />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex w-fit items-center gap-3 rounded-[28px] border border-slate-200/80 bg-white px-4 py-3 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.55)]">
+              <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-200/80">
+                <Image
+                  src="/dcc-logo-back.png"
+                  alt="DCC company logo"
+                  fill
+                  className="object-contain p-2"
+                  priority
+                />
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Powered by DCC</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">TaskMaster Pro</p>
+              </div>
             </div>
-            <span className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">
-              TaskMaster Pro
-            </span>
+            <span className="text-sm font-medium uppercase tracking-[0.28em] text-muted-foreground">Operations command center</span>
           </div>
 
           <h1 className="max-w-xl text-4xl font-semibold tracking-tight md:text-5xl">

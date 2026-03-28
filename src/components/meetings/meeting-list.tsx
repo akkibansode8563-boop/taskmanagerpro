@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type Meeting, type MeetingFilter } from '@/lib/types';
-import { isMeetingDone } from '@/lib/workflow';
+import { isMeetingDone, normalizeMeeting } from '@/lib/workflow';
 import { Badge } from '../ui/badge';
 import EmptyState from '../shared/empty-state';
 import MeetingItem from './meeting-item';
@@ -33,6 +33,7 @@ const MeetingList: React.FC<MeetingListProps> = ({
   const [activeTab, setActiveTab] = useState<MeetingFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [sortBy, setSortBy] = useState<MeetingSort>('soonest');
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, ReturnType<typeof normalizeMeeting>['status']>>({});
 
   const handleTabChange = (tab: string) => {
     const newTab = tab as MeetingFilter;
@@ -56,8 +57,19 @@ const MeetingList: React.FC<MeetingListProps> = ({
     router.replace(`?${params.toString()}`);
   };
 
+  const syncedMeetings = useMemo(
+    () =>
+      meetings.map((meeting) => {
+        const optimisticStatus = optimisticStatuses[meeting.id];
+        return optimisticStatus
+          ? { ...meeting, status: optimisticStatus, isCompleted: optimisticStatus === 'COMPLETED' }
+          : meeting;
+      }),
+    [meetings, optimisticStatuses]
+  );
+
   const filteredMeetings = useMemo(() => {
-    return [...meetings]
+    return [...syncedMeetings]
       .filter((meeting) => {
         if (activeTab === 'pending') return !isMeetingDone(meeting);
         if (activeTab === 'completed') return isMeetingDone(meeting);
@@ -77,12 +89,16 @@ const MeetingList: React.FC<MeetingListProps> = ({
         }
         return new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime();
       });
-  }, [meetings, activeTab, searchQuery, sortBy]);
+  }, [syncedMeetings, activeTab, searchQuery, sortBy]);
 
-  const pendingCount = useMemo(() => meetings.filter((meeting) => !isMeetingDone(meeting)).length, [meetings]);
-  const completedCount = useMemo(() => meetings.filter((meeting) => isMeetingDone(meeting)).length, [meetings]);
-  const allCount = meetings.length;
+  const pendingCount = useMemo(() => syncedMeetings.filter((meeting) => !isMeetingDone(meeting)).length, [syncedMeetings]);
+  const completedCount = useMemo(() => syncedMeetings.filter((meeting) => isMeetingDone(meeting)).length, [syncedMeetings]);
+  const allCount = syncedMeetings.length;
   const resultLabel = `${filteredMeetings.length} ${filteredMeetings.length === 1 ? 'meeting' : 'meetings'} shown`;
+
+  const handleOptimisticStatusChange = (meetingId: string, status: ReturnType<typeof normalizeMeeting>['status']) => {
+    setOptimisticStatuses((current) => ({ ...current, [meetingId]: status }));
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -99,7 +115,7 @@ const MeetingList: React.FC<MeetingListProps> = ({
       return (
         <div className="mt-4 space-y-4">
           {filteredMeetings.map((meeting) => (
-            <MeetingItem key={meeting.id} meeting={meeting} />
+            <MeetingItem key={meeting.id} meeting={meeting} onStatusChange={handleOptimisticStatusChange} />
           ))}
         </div>
       );

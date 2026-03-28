@@ -33,6 +33,7 @@ const TaskList: React.FC<TaskListProps> = ({
   const [activeTab, setActiveTab] = useState<TaskFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [sortBy, setSortBy] = useState<TaskSort>('due-soon');
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, ReturnType<typeof normalizeTask>['status']>>({});
 
   const handleTabChange = (tab: string) => {
     const newTab = tab as TaskFilter;
@@ -56,10 +57,19 @@ const TaskList: React.FC<TaskListProps> = ({
     router.replace(`?${params.toString()}`);
   };
 
+  const syncedTasks = useMemo(
+    () =>
+      tasks.map((task) => {
+        const optimisticStatus = optimisticStatuses[task.id];
+        return optimisticStatus ? { ...task, status: optimisticStatus, isCompleted: optimisticStatus === 'COMPLETED' } : task;
+      }),
+    [tasks, optimisticStatuses]
+  );
+
   const filteredTasks = useMemo(() => {
     const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
 
-    return [...tasks]
+    return [...syncedTasks]
       .filter((task) => {
         if (activeTab === 'pending') return !isTaskDone(task);
         if (activeTab === 'completed') return isTaskDone(task);
@@ -82,12 +92,16 @@ const TaskList: React.FC<TaskListProps> = ({
         }
         return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       });
-  }, [tasks, activeTab, searchQuery, sortBy]);
+  }, [syncedTasks, activeTab, searchQuery, sortBy]);
 
-  const pendingCount = useMemo(() => tasks.filter((task) => !isTaskDone(task)).length, [tasks]);
-  const completedCount = useMemo(() => tasks.filter((task) => isTaskDone(task)).length, [tasks]);
-  const allCount = tasks.length;
+  const pendingCount = useMemo(() => syncedTasks.filter((task) => !isTaskDone(task)).length, [syncedTasks]);
+  const completedCount = useMemo(() => syncedTasks.filter((task) => isTaskDone(task)).length, [syncedTasks]);
+  const allCount = syncedTasks.length;
   const resultLabel = `${filteredTasks.length} ${filteredTasks.length === 1 ? 'task' : 'tasks'} shown`;
+
+  const handleOptimisticStatusChange = (taskId: string, status: ReturnType<typeof normalizeTask>['status']) => {
+    setOptimisticStatuses((current) => ({ ...current, [taskId]: status }));
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -104,7 +118,7 @@ const TaskList: React.FC<TaskListProps> = ({
       return (
         <div className="mt-4 space-y-4">
           {filteredTasks.map((task) => (
-            <TaskItem key={task.id} task={task} />
+            <TaskItem key={task.id} task={task} onStatusChange={handleOptimisticStatusChange} />
           ))}
         </div>
       );

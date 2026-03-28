@@ -6,14 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { type Task } from '@/lib/types';
-import { cn, formatDate } from '@/lib/utils';
+import { cn, formatDate, formatDateTime } from '@/lib/utils';
 import { normalizeTask, taskStatusLabel } from '@/lib/workflow';
 import { updateTaskRecord, useUser } from '@/supabase';
 import TaskItemActions from './task-item-actions';
-import FormattedTime from '../shared/formatted-time';
 
 interface TaskItemProps {
   task: Task;
+  onStatusChange?: (taskId: string, status: ReturnType<typeof normalizeTask>['status']) => void;
 }
 
 const PriorityBadge = ({ priority }: { priority: Task['priority'] }) => {
@@ -38,24 +38,35 @@ const statusClasses = {
   COMPLETED: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-800',
 };
 
-const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
+const TaskItem: React.FC<TaskItemProps> = ({ task, onStatusChange }) => {
   const normalizedTask = normalizeTask(task);
-  const [isCompleted, setIsCompleted] = useState(normalizedTask.status === 'COMPLETED');
+  const [optimisticStatus, setOptimisticStatus] = useState(normalizedTask.status);
   const { user } = useUser();
 
   useEffect(() => {
-    setIsCompleted(normalizedTask.status === 'COMPLETED');
+    setOptimisticStatus(normalizedTask.status);
   }, [normalizedTask.status]);
+
+  const isCompleted = optimisticStatus === 'COMPLETED';
+  const visibleTask = {
+    ...normalizedTask,
+    status: optimisticStatus,
+    isCompleted,
+  };
 
   const handleStatusChange = async (checked: boolean) => {
     if (!user) return;
-    setIsCompleted(checked);
+    const nextStatus = checked ? 'COMPLETED' : 'TODO';
+    const previousStatus = optimisticStatus;
+    setOptimisticStatus(nextStatus);
+    onStatusChange?.(normalizedTask.id, nextStatus);
     try {
       await updateTaskRecord(normalizedTask, {
-        status: checked ? 'COMPLETED' : 'TODO',
+        status: nextStatus,
       });
     } catch {
-      setIsCompleted(!checked);
+      setOptimisticStatus(previousStatus);
+      onStatusChange?.(normalizedTask.id, previousStatus);
     }
   };
 
@@ -75,40 +86,40 @@ const TaskItem: React.FC<TaskItemProps> = ({ task }) => {
                 htmlFor={`task-${task.id}`}
                 className={cn('font-medium leading-none cursor-pointer', isCompleted && 'line-through text-muted-foreground')}
               >
-                {normalizedTask.name}
+                {visibleTask.name}
               </label>
-              <Badge variant="outline" className={statusClasses[normalizedTask.status]}>
-                {taskStatusLabel[normalizedTask.status]}
+              <Badge variant="outline" className={statusClasses[visibleTask.status]}>
+                {taskStatusLabel[visibleTask.status]}
               </Badge>
-              {normalizedTask.category && (
+              {visibleTask.category && (
                 <Badge variant="secondary" className="flex items-center gap-1">
                   <Layers3 className="h-3 w-3" />
-                  {normalizedTask.category}
+                  {visibleTask.category}
                 </Badge>
               )}
             </div>
-            {normalizedTask.details && (
+            {visibleTask.details && (
               <p className={cn('mt-1 text-sm text-muted-foreground', isCompleted && 'line-through')}>
-                {normalizedTask.details}
+                {visibleTask.details}
               </p>
             )}
           </div>
-          <TaskItemActions task={normalizedTask} />
+          <TaskItemActions task={visibleTask} />
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-10 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <CalendarDays className="h-4 w-4" />
-            <span>{formatDate(normalizedTask.dueDate)}</span>
+            <span>{formatDate(visibleTask.dueDate)}</span>
           </div>
-          {normalizedTask.reminderTime && (
+          {visibleTask.reminderTime && (
             <div className="flex items-center gap-1.5">
               <Bell className="h-4 w-4" />
-              <FormattedTime date={normalizedTask.reminderTime} />
+              <span>{formatDateTime(visibleTask.reminderTime)}</span>
             </div>
           )}
-          <PriorityBadge priority={normalizedTask.priority} />
-          {normalizedTask.wasCarriedForward && (
+          <PriorityBadge priority={visibleTask.priority} />
+          {visibleTask.wasCarriedForward && (
             <Badge variant="secondary" className="flex items-center gap-1.5">
               <History className="h-3 w-3" />
               Carried Forward

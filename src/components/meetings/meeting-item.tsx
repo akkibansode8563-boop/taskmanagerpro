@@ -15,6 +15,7 @@ import MeetingItemActions from './meeting-item-actions';
 
 interface MeetingItemProps {
   meeting: Meeting;
+  onStatusChange?: (meetingId: string, status: ReturnType<typeof normalizeMeeting>['status']) => void;
 }
 
 const statusClasses = {
@@ -24,25 +25,36 @@ const statusClasses = {
   CANCELLED: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-900/50 dark:text-slate-300 dark:border-slate-800',
 };
 
-const MeetingItem: React.FC<MeetingItemProps> = ({ meeting }) => {
+const MeetingItem: React.FC<MeetingItemProps> = ({ meeting, onStatusChange }) => {
   const normalizedMeeting = normalizeMeeting(meeting);
-  const [isCompleted, setIsCompleted] = useState(normalizedMeeting.status === 'COMPLETED');
+  const [optimisticStatus, setOptimisticStatus] = useState(normalizedMeeting.status);
   const [isMinutesDialogOpen, setIsMinutesDialogOpen] = useState(false);
   const { user } = useUser();
 
   useEffect(() => {
-    setIsCompleted(normalizedMeeting.status === 'COMPLETED');
+    setOptimisticStatus(normalizedMeeting.status);
   }, [normalizedMeeting.status]);
+
+  const isCompleted = optimisticStatus === 'COMPLETED';
+  const visibleMeeting = {
+    ...normalizedMeeting,
+    status: optimisticStatus,
+    isCompleted,
+  };
 
   const handleStatusChange = async (checked: boolean) => {
     if (!user) return;
-    setIsCompleted(checked);
+    const nextStatus = checked ? 'COMPLETED' : 'SCHEDULED';
+    const previousStatus = optimisticStatus;
+    setOptimisticStatus(nextStatus);
+    onStatusChange?.(normalizedMeeting.id, nextStatus);
     try {
       await updateMeetingRecord(normalizedMeeting, {
-        status: checked ? 'COMPLETED' : 'SCHEDULED',
+        status: nextStatus,
       });
     } catch {
-      setIsCompleted(!checked);
+      setOptimisticStatus(previousStatus);
+      onStatusChange?.(normalizedMeeting.id, previousStatus);
     }
   };
 
@@ -67,54 +79,54 @@ const MeetingItem: React.FC<MeetingItemProps> = ({ meeting }) => {
                   htmlFor={`meeting-${meeting.id}`}
                   className={cn('font-medium leading-none cursor-pointer', isCompleted && 'line-through text-muted-foreground')}
                 >
-                  {normalizedMeeting.title}
+                  {visibleMeeting.title}
                 </label>
-                <Badge variant="outline" className={statusClasses[normalizedMeeting.status]}>
-                  {meetingStatusLabel[normalizedMeeting.status]}
+                <Badge variant="outline" className={statusClasses[visibleMeeting.status]}>
+                  {meetingStatusLabel[visibleMeeting.status]}
                 </Badge>
               </div>
-              {normalizedMeeting.subtitle && (
+              {visibleMeeting.subtitle && (
                 <p className={cn('mt-1 text-sm text-muted-foreground', isCompleted && 'line-through')}>
-                  {normalizedMeeting.subtitle}
+                  {visibleMeeting.subtitle}
                 </p>
               )}
             </div>
-            <MeetingItemActions meeting={normalizedMeeting} />
+            <MeetingItemActions meeting={visibleMeeting} />
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-10 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              <span>{formatDateTime(normalizedMeeting.dateTime)}</span>
+              <span>{formatDateTime(visibleMeeting.dateTime)}</span>
             </div>
-            {normalizedMeeting.location && (
+            {visibleMeeting.location && (
               <div className="flex items-center gap-1.5">
                 <MapPin className="h-4 w-4" />
-                <span>{normalizedMeeting.location}</span>
+                <span>{visibleMeeting.location}</span>
               </div>
             )}
-            {normalizedMeeting.attendees && (
+            {visibleMeeting.attendees && (
               <div className="flex items-center gap-1.5">
                 <Users className="h-4 w-4" />
-                <span>{normalizedMeeting.attendees}</span>
+                <span>{visibleMeeting.attendees}</span>
               </div>
             )}
-            {normalizedMeeting.status === 'COMPLETED' && (
+            {visibleMeeting.status === 'COMPLETED' && (
               <Button variant="outline" size="sm" onClick={() => setIsMinutesDialogOpen(true)}>
                 <NotebookPen className="mr-2 h-4 w-4" />
-                {normalizedMeeting.minutes ? 'View/Edit Minutes' : 'Add Minutes'}
+                {visibleMeeting.minutes ? 'View/Edit Minutes' : 'Add Minutes'}
               </Button>
             )}
           </div>
 
-          {normalizedMeeting.status === 'COMPLETED' && normalizedMeeting.minutes && (
+          {visibleMeeting.status === 'COMPLETED' && visibleMeeting.minutes && (
             <div className="pl-10">
               <Card>
                 <CardHeader className="p-4">
                   <CardTitle className="text-base">Minutes of Meeting</CardTitle>
                 </CardHeader>
                 <CardContent className="p-4 pt-0">
-                  <p className="whitespace-pre-wrap text-sm">{normalizedMeeting.minutes}</p>
+                  <p className="whitespace-pre-wrap text-sm">{visibleMeeting.minutes}</p>
                 </CardContent>
               </Card>
             </div>
@@ -124,7 +136,7 @@ const MeetingItem: React.FC<MeetingItemProps> = ({ meeting }) => {
       <AddMinutesDialog
         isOpen={isMinutesDialogOpen}
         setIsOpen={setIsMinutesDialogOpen}
-        meeting={normalizedMeeting}
+        meeting={visibleMeeting}
         onSuccess={handleMinutesSuccess}
       />
     </>

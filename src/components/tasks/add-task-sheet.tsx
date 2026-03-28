@@ -78,21 +78,23 @@ export const AddTaskSheet: React.FC = () => {
     event.preventDefault();
     const pastedText = event.clipboardData.getData('text');
 
-    const taskRegex = /Task: (.*?)\n/;
-    const detailsRegex = /Details: (.*?)\n/;
-    const dueRegex = /Due: (.*?)\n/;
-    const createdByRegex = /Created by: (.*?)\n/;
+    const getField = (label: string) => {
+      const match = pastedText.match(new RegExp(`^${label}:\\s*(.+)$`, 'im'));
+      return match ? match[1].trim() : null;
+    };
 
-    const taskMatch = pastedText.match(taskRegex);
-    const detailsMatch = pastedText.match(detailsRegex);
-    const dueMatch = pastedText.match(dueRegex);
-    const createdByMatch = pastedText.match(createdByRegex);
+    const taskNameValue = getField('Task');
+    const dueDateValue = getField('Due');
 
-    if (taskMatch && dueMatch) {
-      let taskName = taskMatch[1].trim();
-      const details = detailsMatch ? detailsMatch[1].trim() : null;
-      const dueDateStr = dueMatch[1].trim();
-      const createdBy = createdByMatch ? createdByMatch[1].trim() : null;
+    if (taskNameValue && dueDateValue) {
+      let taskName = taskNameValue;
+      const details = getField('Details');
+      const category = getField('Category');
+      const reminder = getField('Reminder');
+      const priority = getField('Priority');
+      const status = getField('Status');
+      const dueDateStr = dueDateValue;
+      const createdBy = getField('Created by');
 
       if (createdBy) {
         taskName = `${taskName} (Created by - ${createdBy})`;
@@ -109,6 +111,28 @@ export const AddTaskSheet: React.FC = () => {
 
       form.setValue('name', taskName);
       if (details) form.setValue('details', details);
+      if (category) form.setValue('category', category);
+      if (priority && ['HIGH', 'MEDIUM', 'LOW'].includes(priority.toUpperCase())) {
+        form.setValue('priority', priority.toUpperCase() as TaskPriority);
+      }
+      if (status) {
+        const normalizedStatus = status.toUpperCase().replace(/\s+/g, '_');
+        if (['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'].includes(normalizedStatus)) {
+          form.setValue('status', normalizedStatus as TaskStatus);
+        }
+      }
+      if (reminder) {
+        const parsedReminder = reminder.match(/(\d{1,2}:\d{2}\s?[APMapm]{2}|\d{2}:\d{2})/);
+        if (parsedReminder) {
+          try {
+            const parsedTime = parse(parsedReminder[1].toUpperCase().replace(/\s+/g, ''), 'h:mma', new Date());
+            form.setValue('enableReminder', true);
+            form.setValue('reminderTime', format(parsedTime, 'HH:mm'));
+          } catch {
+            // Keep manual reminder entry available if parsing fails.
+          }
+        }
+      }
 
       toast({
         title: 'Shared Task Detected',

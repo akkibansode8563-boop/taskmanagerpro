@@ -1,12 +1,35 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { subscribeToMeetingMutations, subscribeToTaskMutations } from '@/lib/live-sync';
 import { mapMeetingRowToMeeting, mapTaskRowToTask, type MeetingRow, type ProfileRow, type TaskRow } from '@/lib/database';
 import type { Meeting, Task } from '@/lib/types';
 import { useSupabase } from '@/supabase/provider';
 
 type TaskSort = 'updated' | 'due';
 type MeetingSort = 'updated' | 'scheduled';
+
+function sortTasks(tasks: Task[], sort: TaskSort) {
+  const orderColumn = sort === 'due' ? 'dueDate' : 'updatedAt';
+  const ascending = sort === 'due';
+
+  return [...tasks].sort((left, right) => {
+    const leftValue = orderColumn === 'dueDate' ? new Date(left.dueDate).getTime() : left.updatedAt;
+    const rightValue = orderColumn === 'dueDate' ? new Date(right.dueDate).getTime() : right.updatedAt;
+    return ascending ? leftValue - rightValue : rightValue - leftValue;
+  });
+}
+
+function sortMeetings(meetings: Meeting[], sort: MeetingSort) {
+  const orderColumn = sort === 'scheduled' ? 'dateTime' : 'updatedAt';
+  const ascending = sort === 'scheduled';
+
+  return [...meetings].sort((left, right) => {
+    const leftValue = orderColumn === 'dateTime' ? new Date(left.dateTime).getTime() : left.updatedAt;
+    const rightValue = orderColumn === 'dateTime' ? new Date(right.dateTime).getTime() : right.updatedAt;
+    return ascending ? leftValue - rightValue : rightValue - leftValue;
+  });
+}
 
 export function useProfile() {
   const { supabase, user, isConfigured } = useSupabase();
@@ -85,7 +108,7 @@ export function useTasks(sort: TaskSort = 'updated') {
       if (error) {
         setData([]);
       } else {
-        setData((rows as TaskRow[]).map(mapTaskRowToTask));
+        setData(sortTasks((rows as TaskRow[]).map(mapTaskRowToTask), sort));
       }
       setIsLoading(false);
     };
@@ -97,9 +120,26 @@ export function useTasks(sort: TaskSort = 'updated') {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, fetchTasks)
       .subscribe();
 
+    const unsubscribe = subscribeToTaskMutations((event) => {
+      setData((current) => {
+        const existing = current ?? [];
+
+        if (event.type === 'deleted') {
+          return existing.filter((task) => task.id !== event.taskId);
+        }
+
+        const nextTasks = existing.some((task) => task.id === event.task.id)
+          ? existing.map((task) => (task.id === event.task.id ? event.task : task))
+          : [event.task, ...existing];
+
+        return sortTasks(nextTasks, sort);
+      });
+    });
+
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [isConfigured, sort, supabase, user]);
 
@@ -135,7 +175,7 @@ export function useMeetings(sort: MeetingSort = 'updated') {
       if (error) {
         setData([]);
       } else {
-        setData((rows as MeetingRow[]).map(mapMeetingRowToMeeting));
+        setData(sortMeetings((rows as MeetingRow[]).map(mapMeetingRowToMeeting), sort));
       }
       setIsLoading(false);
     };
@@ -147,9 +187,26 @@ export function useMeetings(sort: MeetingSort = 'updated') {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: `user_id=eq.${user.id}` }, fetchMeetings)
       .subscribe();
 
+    const unsubscribe = subscribeToMeetingMutations((event) => {
+      setData((current) => {
+        const existing = current ?? [];
+
+        if (event.type === 'deleted') {
+          return existing.filter((meeting) => meeting.id !== event.meetingId);
+        }
+
+        const nextMeetings = existing.some((meeting) => meeting.id === event.meeting.id)
+          ? existing.map((meeting) => (meeting.id === event.meeting.id ? event.meeting : meeting))
+          : [event.meeting, ...existing];
+
+        return sortMeetings(nextMeetings, sort);
+      });
+    });
+
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [isConfigured, sort, supabase, user]);
 

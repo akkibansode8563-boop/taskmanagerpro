@@ -1,6 +1,8 @@
 'use client';
 
 import type { User } from '@supabase/supabase-js';
+import { cancelTaskReminder, scheduleTaskReminder } from '@/lib/mobile-reminders';
+import { emitMeetingMutation, emitTaskMutation } from '@/lib/live-sync';
 import { normalizeMeeting, normalizeTask } from '@/lib/workflow';
 import type { Meeting, MeetingStatus, Task, TaskPriority, TaskStatus } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/supabase/client';
@@ -33,6 +35,20 @@ export async function createTaskRecord(
   }
 ) {
   const id = createId();
+  const createdTask: Task = {
+    id,
+    name: data.name,
+    details: data.details,
+    category: data.category,
+    dueDate: data.dueDate,
+    reminderTime: data.reminderTime,
+    priority: data.priority,
+    status: data.status,
+    isCompleted: data.status === 'COMPLETED',
+    wasCarriedForward: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
   const { error } = await supabase.from('tasks').insert({
     id,
     user_id: user.id,
@@ -47,6 +63,10 @@ export async function createTaskRecord(
   });
 
   if (error) throw error;
+
+  emitTaskMutation({ type: 'created', task: createdTask });
+  await scheduleTaskReminder(createdTask);
+  return createdTask;
 }
 
 export async function updateTaskRecord(task: Task, data: Partial<Task>) {
@@ -66,11 +86,17 @@ export async function updateTaskRecord(task: Task, data: Partial<Task>) {
     .eq('id', normalizedTask.id);
 
   if (error) throw error;
+
+  emitTaskMutation({ type: 'updated', task: normalizedTask });
+  await scheduleTaskReminder(normalizedTask);
+  return normalizedTask;
 }
 
 export async function deleteTaskRecord(taskId: string) {
   const { error } = await supabase.from('tasks').delete().eq('id', taskId);
   if (error) throw error;
+  emitTaskMutation({ type: 'deleted', taskId });
+  await cancelTaskReminder(taskId);
 }
 
 export async function createMeetingRecord(
@@ -85,6 +111,19 @@ export async function createMeetingRecord(
   }
 ) {
   const id = createId();
+  const createdMeeting: Meeting = {
+    id,
+    title: data.title,
+    subtitle: data.subtitle,
+    location: data.location,
+    attendees: data.attendees,
+    dateTime: data.dateTime,
+    status: data.status,
+    isCompleted: data.status === 'COMPLETED',
+    minutes: null,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
   const { error } = await supabase.from('meetings').insert({
     id,
     user_id: user.id,
@@ -98,6 +137,8 @@ export async function createMeetingRecord(
   });
 
   if (error) throw error;
+  emitMeetingMutation({ type: 'created', meeting: createdMeeting });
+  return createdMeeting;
 }
 
 export async function updateMeetingRecord(meeting: Meeting, data: Partial<Meeting>) {
@@ -116,11 +157,14 @@ export async function updateMeetingRecord(meeting: Meeting, data: Partial<Meetin
     .eq('id', normalizedMeeting.id);
 
   if (error) throw error;
+  emitMeetingMutation({ type: 'updated', meeting: normalizedMeeting });
+  return normalizedMeeting;
 }
 
 export async function deleteMeetingRecord(meetingId: string) {
   const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
   if (error) throw error;
+  emitMeetingMutation({ type: 'deleted', meetingId });
 }
 
 export async function updateMeetingMinutes(meetingId: string, minutes: string) {

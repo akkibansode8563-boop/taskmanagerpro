@@ -1,6 +1,8 @@
 'use client';
 
+import { Capacitor } from '@capacitor/core';
 import { useEffect, useMemo, type ReactNode } from 'react';
+import { requestReminderPermissions, syncTaskReminders } from '@/lib/mobile-reminders';
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ensureProfile, useTasks, useUser } from '@/supabase';
@@ -44,7 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isPublicRoute, isUserLoading, pathname, router, user]);
 
   useEffect(() => {
-    if (!user || isPublicRoute || typeof window === 'undefined' || !('Notification' in window)) {
+    if (!user || isPublicRoute) {
+      return;
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      requestReminderPermissions().catch(() => {
+        // Keep app usable if native reminder permissions are denied.
+      });
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
     }
 
@@ -69,7 +82,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [isPublicRoute, toast, user]);
 
   useEffect(() => {
-    if (!tasks || typeof window === 'undefined' || !('Notification' in window)) {
+    if (!tasks) {
+      return;
+    }
+
+    if (Capacitor.isNativePlatform()) {
+      syncTaskReminders(tasks).catch(() => {
+        // Do not block the app if native reminder sync fails.
+      });
+      return;
+    }
+
+    if (typeof window === 'undefined' || !('Notification' in window)) {
       return;
     }
 

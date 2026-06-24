@@ -76,6 +76,16 @@ const EditMeetingSheet: React.FC<EditMeetingSheetProps> = ({ isOpen, setIsOpen, 
     }
   }, [form, isOpen, meeting]);
 
+  // Prevent Radix UI pointer-events body lock bug when nesting Dialog/Sheet inside DropdownMenu
+  useEffect(() => {
+    if (!isOpen) {
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = 'auto';
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   const onSubmit = async (data: MeetingFormValues) => {
     if (!user || !editingMeeting) return;
 

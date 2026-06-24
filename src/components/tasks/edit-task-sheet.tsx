@@ -86,6 +86,16 @@ const EditTaskSheet: React.FC<EditTaskSheetProps> = ({ isOpen, setIsOpen, task, 
     }
   }, [form, isOpen, task]);
 
+  // Prevent Radix UI pointer-events body lock bug when nesting Dialog/Sheet inside DropdownMenu
+  useEffect(() => {
+    if (!isOpen) {
+      const timer = setTimeout(() => {
+        document.body.style.pointerEvents = '';
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   const onSubmit = async (data: TaskFormValues) => {
     if (!user || !editingTask) return;
 

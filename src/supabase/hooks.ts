@@ -46,23 +46,33 @@ export function useProfile() {
     let isMounted = true;
 
     const fetchProfile = async () => {
-      setIsLoading(true);
-      const { data: row, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      try {
+        const { data: row, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (!isMounted) return;
+        if (!isMounted) return;
 
-      if (error) {
-        setData(null);
-      } else {
-        setData((row as ProfileRow | null) ?? null);
+        if (error) {
+          setData(null);
+        } else {
+          setData((row as ProfileRow | null) ?? null);
+        }
+      } catch (err) {
+        console.error('[useProfile] fetchProfile error:', err);
+        if (isMounted) {
+          setData(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
+    setIsLoading(true);
     fetchProfile();
 
     const channel = supabase
@@ -93,31 +103,43 @@ export function useTasks(sort: TaskSort = 'updated') {
 
     let isMounted = true;
 
-    const fetchTasks = async () => {
-      setIsLoading(true);
-      const orderColumn = sort === 'due' ? 'due_at' : 'updated_at';
-      const ascending = sort === 'due';
-      const { data: rows, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', user.id)
-        .order(orderColumn, { ascending });
-
-      if (!isMounted) return;
-
-      if (error) {
-        setData([]);
-      } else {
-        setData(sortTasks((rows as TaskRow[]).map(mapTaskRowToTask), sort));
+    const fetchTasks = async (showSkeleton = false) => {
+      if (showSkeleton) {
+        setIsLoading(true);
       }
-      setIsLoading(false);
+      try {
+        const orderColumn = sort === 'due' ? 'due_at' : 'updated_at';
+        const ascending = sort === 'due';
+        const { data: rows, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order(orderColumn, { ascending });
+
+        if (!isMounted) return;
+
+        if (error || !rows) {
+          setData([]);
+        } else {
+          setData(sortTasks((rows as TaskRow[]).map(mapTaskRowToTask), sort));
+        }
+      } catch (err) {
+        console.error('[useTasks] fetchTasks error:', err);
+        if (isMounted) {
+          setData([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    fetchTasks();
+    fetchTasks(true);
 
     const channel = supabase
       .channel(`tasks-${user.id}-${sort}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, fetchTasks)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `user_id=eq.${user.id}` }, () => fetchTasks(false))
       .subscribe();
 
     const unsubscribe = subscribeToTaskMutations((event) => {
@@ -160,31 +182,43 @@ export function useMeetings(sort: MeetingSort = 'updated') {
 
     let isMounted = true;
 
-    const fetchMeetings = async () => {
-      setIsLoading(true);
-      const orderColumn = sort === 'scheduled' ? 'scheduled_at' : 'updated_at';
-      const ascending = sort === 'scheduled';
-      const { data: rows, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order(orderColumn, { ascending });
-
-      if (!isMounted) return;
-
-      if (error) {
-        setData([]);
-      } else {
-        setData(sortMeetings((rows as MeetingRow[]).map(mapMeetingRowToMeeting), sort));
+    const fetchMeetings = async (showSkeleton = false) => {
+      if (showSkeleton) {
+        setIsLoading(true);
       }
-      setIsLoading(false);
+      try {
+        const orderColumn = sort === 'scheduled' ? 'scheduled_at' : 'updated_at';
+        const ascending = sort === 'scheduled';
+        const { data: rows, error } = await supabase
+          .from('meetings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order(orderColumn, { ascending });
+
+        if (!isMounted) return;
+
+        if (error || !rows) {
+          setData([]);
+        } else {
+          setData(sortMeetings((rows as MeetingRow[]).map(mapMeetingRowToMeeting), sort));
+        }
+      } catch (err) {
+        console.error('[useMeetings] fetchMeetings error:', err);
+        if (isMounted) {
+          setData([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
 
-    fetchMeetings();
+    fetchMeetings(true);
 
     const channel = supabase
       .channel(`meetings-${user.id}-${sort}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: `user_id=eq.${user.id}` }, fetchMeetings)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meetings', filter: `user_id=eq.${user.id}` }, () => fetchMeetings(false))
       .subscribe();
 
     const unsubscribe = subscribeToMeetingMutations((event) => {

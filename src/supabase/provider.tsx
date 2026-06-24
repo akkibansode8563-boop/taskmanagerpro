@@ -27,32 +27,49 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
     }
 
     let isMounted = true;
+    let subscription: any = null;
 
-    supabase.auth.getSession()
-      .then(({ data }) => {
-        if (!isMounted) return;
-        setSession(data?.session ?? null);
-        setUser(data?.session?.user ?? null);
-        setIsUserLoading(false);
-      })
-      .catch((err) => {
-        console.error('[SupabaseProvider] failed to get session:', err);
-        if (isMounted) {
+    try {
+      // 3-second session fetch timeout (e.g. cold-starts, slow network)
+      const sessionPromise = supabase.auth.getSession();
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Session retrieval timed out')), 3000)
+      );
+
+      Promise.race([sessionPromise, timeoutPromise])
+        .then(({ data }) => {
+          if (!isMounted) return;
+          setSession(data?.session ?? null);
+          setUser(data?.session?.user ?? null);
           setIsUserLoading(false);
-        }
+        })
+        .catch((err) => {
+          console.warn('[SupabaseProvider] session fetch or timeout:', err);
+          if (isMounted) {
+            setIsUserLoading(false);
+          }
+        });
+
+      const res = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        if (!isMounted) return;
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
+        setIsUserLoading(false);
       });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      setUser(nextSession?.user ?? null);
+      if (res && res.data && res.data.subscription) {
+        subscription = res.data.subscription;
+      }
+    } catch (err) {
+      console.error('[SupabaseProvider] auth initialization error:', err);
       setIsUserLoading(false);
-    });
+    }
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [supabase]);
 

@@ -110,7 +110,7 @@ const MeetingItemActions: React.FC<MeetingItemActionsProps> = ({ meeting }) => {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <MoreVertical className="h-4 w-4" />

@@ -81,11 +81,12 @@ export function AppLogoIcon({ variant = 'gradient', className, ...props }: AppLo
       </text>
       {/* Since: 1992 Text */}
       <text
-        x="49.5"
+        x="46"
         y="68.5"
         fontFamily="system-ui, -apple-system, sans-serif"
         fontWeight="800"
-        fontSize="8"
+        fontSize="7.5"
+        letterSpacing="-0.2px"
         fill={color}
       >
         Since: 1992

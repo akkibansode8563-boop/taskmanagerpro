@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ClipboardCheck, LogOut } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { AppLogoIcon } from '../icons/app-logo-icon';
 import { ThemeToggle } from '../ui/theme-toggle';
 import { Button } from '../ui/button';
 import { getDisplayName } from '@/lib/profile';
@@ -13,7 +14,7 @@ import { useProfile, useSupabaseClient, useUser } from '@/supabase';
 function AppLogo({ href }: { href: string }) {
   return (
     <Link href={href} className="mr-4 flex min-w-0 items-center space-x-2 md:mr-6">
-      <ClipboardCheck className="h-5 w-5 shrink-0 text-primary md:h-6 md:w-6" />
+      <AppLogoIcon className="h-5 w-5 shrink-0 md:h-6 md:w-6" />
       <span className="truncate bg-gradient-to-r from-sky-600 via-primary to-orange-500 bg-[200%_auto] bg-clip-text text-base font-bold text-transparent animate-shine md:text-lg">
         TaskMaster Pro
       </span>

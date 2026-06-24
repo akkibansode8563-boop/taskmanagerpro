@@ -1,24 +1,16 @@
-import Image from 'next/image';
 import { AuthForm } from '@/components/auth/auth-form';
+import { AppLogoIcon } from '@/components/icons/app-logo-icon';
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-[calc(100vh-theme(spacing.16))] items-center justify-center px-4 py-6 sm:px-6 sm:py-10">
       <section className="w-full max-w-md rounded-[28px] border bg-card/95 p-5 shadow-xl backdrop-blur sm:p-6 md:p-8">
         <div className="mb-6 flex flex-col items-center space-y-4 text-center">
-          <div className="flex w-full max-w-[280px] items-center justify-center gap-3 rounded-[28px] border border-slate-200/80 bg-white px-4 py-3 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.55)]">
-            <div className="relative h-14 w-14 overflow-hidden rounded-2xl bg-slate-50 ring-1 ring-slate-200/80 sm:h-16 sm:w-16">
-              <Image
-                src="/dcc-logo-back.png"
-                alt="DCC company logo"
-                fill
-                className="object-contain p-2"
-                priority
-              />
-            </div>
+          <div className="flex w-full max-w-[280px] items-center justify-center gap-3 rounded-[28px] border border-slate-200/80 bg-white px-4 py-3 shadow-[0_18px_45px_-24px_rgba(15,23,42,0.55)] dark:bg-slate-950 dark:border-slate-800">
+            <AppLogoIcon className="h-14 w-14 shrink-0 sm:h-16 sm:w-16" />
             <div className="text-left">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Powered by DCC</p>
-              <p className="mt-1 text-base font-semibold text-slate-900 sm:text-lg">TaskMaster Pro</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">Workspace</p>
+              <p className="mt-1 text-base font-semibold text-slate-900 sm:text-lg dark:text-white">TaskMaster Pro</p>
             </div>
           </div>
           <div className="space-y-2">

@@ -21,14 +21,26 @@ export function SupabaseProvider({ children }: { children: ReactNode }) {
   const [isUserLoading, setIsUserLoading] = useState(true);
 
   useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setIsUserLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      setIsUserLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setSession(data?.session ?? null);
+        setUser(data?.session?.user ?? null);
+        setIsUserLoading(false);
+      })
+      .catch((err) => {
+        console.error('[SupabaseProvider] failed to get session:', err);
+        if (isMounted) {
+          setIsUserLoading(false);
+        }
+      });
 
     const {
       data: { subscription },

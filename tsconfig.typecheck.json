@@ -2,11 +2,14 @@
   "extends": "./tsconfig.json",
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx"
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "capacitor.config.ts"
   ],
   "exclude": [
     "android",
+    "ios",
+    "out",
     "node_modules"
   ]
 }

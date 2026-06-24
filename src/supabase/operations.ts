@@ -6,6 +6,7 @@ import { emitMeetingMutation, emitTaskMutation } from '@/lib/live-sync';
 import { normalizeMeeting, normalizeTask } from '@/lib/workflow';
 import type { Meeting, MeetingStatus, Task, TaskPriority, TaskStatus } from '@/lib/types';
 import { getSupabaseBrowserClient } from '@/supabase/client';
+import { enqueueOperation } from '@/lib/offline-queue';
 
 const supabase = getSupabaseBrowserClient();
 
@@ -14,6 +15,10 @@ function createId() {
 }
 
 export async function ensureProfile(user: User, displayName?: string | null) {
+  if (typeof window !== 'undefined' && !navigator.onLine) {
+    // If offline, we skip or cache locally. For profile update we just return safely.
+    return;
+  }
   await supabase.from('profiles').upsert({
     id: user.id,
     email: user.email ?? null,
@@ -49,20 +54,30 @@ export async function createTaskRecord(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
-  const { error } = await supabase.from('tasks').insert({
-    id,
-    user_id: user.id,
-    name: data.name,
-    details: data.details,
-    category: data.category,
-    due_at: data.dueDate,
-    reminder_at: data.reminderTime,
-    priority: data.priority,
-    status: data.status,
-    was_carried_forward: false,
-  });
 
-  if (error) throw error;
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+  if (isOffline) {
+    enqueueOperation('task', 'create', {
+      userId: user.id,
+      ...createdTask,
+    });
+  } else {
+    const { error } = await supabase.from('tasks').insert({
+      id,
+      user_id: user.id,
+      name: data.name,
+      details: data.details,
+      category: data.category,
+      due_at: data.dueDate,
+      reminder_at: data.reminderTime,
+      priority: data.priority,
+      status: data.status,
+      was_carried_forward: false,
+    });
+
+    if (error) throw error;
+  }
 
   emitTaskMutation({ type: 'created', task: createdTask });
   await scheduleTaskReminder(createdTask);
@@ -71,21 +86,27 @@ export async function createTaskRecord(
 
 export async function updateTaskRecord(task: Task, data: Partial<Task>) {
   const normalizedTask = normalizeTask({ ...task, ...data });
-  const { error } = await supabase
-    .from('tasks')
-    .update({
-      name: normalizedTask.name,
-      details: normalizedTask.details,
-      category: normalizedTask.category ?? null,
-      due_at: normalizedTask.dueDate,
-      reminder_at: normalizedTask.reminderTime,
-      priority: normalizedTask.priority,
-      status: normalizedTask.status,
-      was_carried_forward: normalizedTask.wasCarriedForward,
-    })
-    .eq('id', normalizedTask.id);
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
 
-  if (error) throw error;
+  if (isOffline) {
+    enqueueOperation('task', 'update', normalizedTask);
+  } else {
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        name: normalizedTask.name,
+        details: normalizedTask.details,
+        category: normalizedTask.category ?? null,
+        due_at: normalizedTask.dueDate,
+        reminder_at: normalizedTask.reminderTime,
+        priority: normalizedTask.priority,
+        status: normalizedTask.status,
+        was_carried_forward: normalizedTask.wasCarriedForward,
+      })
+      .eq('id', normalizedTask.id);
+
+    if (error) throw error;
+  }
 
   emitTaskMutation({ type: 'updated', task: normalizedTask });
   await scheduleTaskReminder(normalizedTask);
@@ -93,8 +114,15 @@ export async function updateTaskRecord(task: Task, data: Partial<Task>) {
 }
 
 export async function deleteTaskRecord(taskId: string) {
-  const { error } = await supabase.from('tasks').delete().eq('id', taskId);
-  if (error) throw error;
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+  if (isOffline) {
+    enqueueOperation('task', 'delete', { taskId });
+  } else {
+    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+    if (error) throw error;
+  }
+
   emitTaskMutation({ type: 'deleted', taskId });
   await cancelTaskReminder(taskId);
 }
@@ -124,50 +152,82 @@ export async function createMeetingRecord(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
-  const { error } = await supabase.from('meetings').insert({
-    id,
-    user_id: user.id,
-    title: data.title,
-    subtitle: data.subtitle,
-    location: data.location,
-    attendees: data.attendees,
-    scheduled_at: data.dateTime,
-    status: data.status,
-    minutes: null,
-  });
 
-  if (error) throw error;
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+  if (isOffline) {
+    enqueueOperation('meeting', 'create', {
+      userId: user.id,
+      ...createdMeeting,
+    });
+  } else {
+    const { error } = await supabase.from('meetings').insert({
+      id,
+      user_id: user.id,
+      title: data.title,
+      subtitle: data.subtitle,
+      location: data.location,
+      attendees: data.attendees,
+      scheduled_at: data.dateTime,
+      status: data.status,
+      minutes: null,
+    });
+
+    if (error) throw error;
+  }
+
   emitMeetingMutation({ type: 'created', meeting: createdMeeting });
   return createdMeeting;
 }
 
 export async function updateMeetingRecord(meeting: Meeting, data: Partial<Meeting>) {
   const normalizedMeeting = normalizeMeeting({ ...meeting, ...data });
-  const { error } = await supabase
-    .from('meetings')
-    .update({
-      title: normalizedMeeting.title,
-      subtitle: normalizedMeeting.subtitle,
-      location: normalizedMeeting.location ?? null,
-      attendees: normalizedMeeting.attendees ?? null,
-      scheduled_at: normalizedMeeting.dateTime,
-      status: normalizedMeeting.status,
-      minutes: normalizedMeeting.minutes ?? null,
-    })
-    .eq('id', normalizedMeeting.id);
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
 
-  if (error) throw error;
+  if (isOffline) {
+    enqueueOperation('meeting', 'update', normalizedMeeting);
+  } else {
+    const { error } = await supabase
+      .from('meetings')
+      .update({
+        title: normalizedMeeting.title,
+        subtitle: normalizedMeeting.subtitle,
+        location: normalizedMeeting.location ?? null,
+        attendees: normalizedMeeting.attendees ?? null,
+        scheduled_at: normalizedMeeting.dateTime,
+        status: normalizedMeeting.status,
+        minutes: normalizedMeeting.minutes ?? null,
+      })
+      .eq('id', normalizedMeeting.id);
+
+    if (error) throw error;
+  }
+
   emitMeetingMutation({ type: 'updated', meeting: normalizedMeeting });
   return normalizedMeeting;
 }
 
 export async function deleteMeetingRecord(meetingId: string) {
-  const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
-  if (error) throw error;
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+  if (isOffline) {
+    enqueueOperation('meeting', 'delete', { meetingId });
+  } else {
+    const { error } = await supabase.from('meetings').delete().eq('id', meetingId);
+    if (error) throw error;
+  }
+
   emitMeetingMutation({ type: 'deleted', meetingId });
 }
 
 export async function updateMeetingMinutes(meetingId: string, minutes: string) {
-  const { error } = await supabase.from('meetings').update({ minutes, status: 'COMPLETED' }).eq('id', meetingId);
-  if (error) throw error;
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
+
+  if (isOffline) {
+    enqueueOperation('meeting', 'update-minutes', { meetingId, minutes });
+  } else {
+    const { error } = await supabase.from('meetings').update({ minutes, status: 'COMPLETED' }).eq('id', meetingId);
+    if (error) throw error;
+  }
 }
+

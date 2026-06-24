@@ -5,7 +5,7 @@ import { useEffect, useMemo, type ReactNode } from 'react';
 import { requestReminderPermissions } from '@/lib/mobile-reminders';
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ensureProfile, useUser } from '@/supabase';
+import { ensureProfile, useUser, useSupabaseClient } from '@/supabase';
 import { useToast } from '@/hooks/use-toast';
 
 const publicRoutes = new Set(['/login', '/terms', '/privacy']);
@@ -13,11 +13,51 @@ const notificationStorageKey = 'taskmaster.notifications.prompted';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isUserLoading } = useUser();
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
   const isPublicRoute = useMemo(() => publicRoutes.has(pathname), [pathname]);
+
+  // Active session idle timeout (30 minutes)
+  useEffect(() => {
+    if (!user || isPublicRoute) return;
+
+    const timeoutDuration = 30 * 60 * 1000; // 30 minutes
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(async () => {
+        try {
+          await supabase.auth.signOut();
+          toast({
+            title: 'Session Expired',
+            description: 'You have been signed out due to inactivity.',
+          });
+        } catch (e) {
+          console.error('Sign out error on idle timeout:', e);
+        }
+      }, timeoutDuration);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    // Initialize timer
+    resetTimer();
+
+    events.forEach((event) => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [user, isPublicRoute, supabase, toast]);
 
   // Sync the user profile row on every new sign-in.
   useEffect(() => {

@@ -15,6 +15,7 @@ export function AppLogoIcon({ variant = 'gradient', className, ...props }: AppLo
           className
         )}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/dcc-logo-back.png"
           alt="DCC Logo"

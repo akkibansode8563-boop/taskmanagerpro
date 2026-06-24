@@ -29,13 +29,16 @@
     "incremental": true
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "capacitor.config.ts",
     "next-env.d.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
     "android",
+    "ios",
+    "out",
     "node_modules"
   ]
 }

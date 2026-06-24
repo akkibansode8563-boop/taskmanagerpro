@@ -5,6 +5,12 @@ import { subscribeToMeetingMutations, subscribeToTaskMutations } from '@/lib/liv
 import { mapMeetingRowToMeeting, mapTaskRowToTask, type MeetingRow, type ProfileRow, type TaskRow } from '@/lib/database';
 import type { Meeting, Task } from '@/lib/types';
 import { useSupabase } from '@/supabase/provider';
+import { 
+  cacheTasksLocally, 
+  getCachedTasks, 
+  cacheMeetingsLocally, 
+  getCachedMeetings 
+} from '@/lib/offline-queue';
 
 type TaskSort = 'updated' | 'due';
 type MeetingSort = 'updated' | 'scheduled';
@@ -110,6 +116,17 @@ export function useTasks(sort: TaskSort = 'updated') {
       try {
         const orderColumn = sort === 'due' ? 'due_at' : 'updated_at';
         const ascending = sort === 'due';
+        
+        // If offline, bypass network call immediately
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          const cached = getCachedTasks();
+          if (isMounted) {
+            setData(sortTasks(cached, sort));
+            setIsLoading(false);
+          }
+          return;
+        }
+
         const { data: rows, error } = await supabase
           .from('tasks')
           .select('*')
@@ -119,14 +136,18 @@ export function useTasks(sort: TaskSort = 'updated') {
         if (!isMounted) return;
 
         if (error || !rows) {
-          setData([]);
+          const cached = getCachedTasks();
+          setData(sortTasks(cached, sort));
         } else {
-          setData(sortTasks((rows as TaskRow[]).map(mapTaskRowToTask), sort));
+          const tasks = sortTasks((rows as TaskRow[]).map(mapTaskRowToTask), sort);
+          setData(tasks);
+          cacheTasksLocally(tasks);
         }
       } catch (err) {
         console.error('[useTasks] fetchTasks error:', err);
         if (isMounted) {
-          setData([]);
+          const cached = getCachedTasks();
+          setData(sortTasks(cached, sort));
         }
       } finally {
         if (isMounted) {
@@ -147,21 +168,36 @@ export function useTasks(sort: TaskSort = 'updated') {
         const existing = current ?? [];
 
         if (event.type === 'deleted') {
-          return existing.filter((task) => task.id !== event.taskId);
+          const next = existing.filter((task) => task.id !== event.taskId);
+          cacheTasksLocally(next);
+          return next;
         }
 
         const nextTasks = existing.some((task) => task.id === event.task.id)
           ? existing.map((task) => (task.id === event.task.id ? event.task : task))
           : [event.task, ...existing];
 
-        return sortTasks(nextTasks, sort);
+        const sorted = sortTasks(nextTasks, sort);
+        cacheTasksLocally(sorted);
+        return sorted;
       });
     });
+
+    const handleSyncComplete = () => {
+      fetchTasks(false);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('taskmaster:sync_complete', handleSyncComplete);
+    }
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
       unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('taskmaster:sync_complete', handleSyncComplete);
+      }
     };
   }, [isConfigured, sort, supabase, user]);
 
@@ -189,6 +225,17 @@ export function useMeetings(sort: MeetingSort = 'updated') {
       try {
         const orderColumn = sort === 'scheduled' ? 'scheduled_at' : 'updated_at';
         const ascending = sort === 'scheduled';
+
+        // If offline, bypass network call immediately
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          const cached = getCachedMeetings();
+          if (isMounted) {
+            setData(sortMeetings(cached, sort));
+            setIsLoading(false);
+          }
+          return;
+        }
+
         const { data: rows, error } = await supabase
           .from('meetings')
           .select('*')
@@ -198,14 +245,18 @@ export function useMeetings(sort: MeetingSort = 'updated') {
         if (!isMounted) return;
 
         if (error || !rows) {
-          setData([]);
+          const cached = getCachedMeetings();
+          setData(sortMeetings(cached, sort));
         } else {
-          setData(sortMeetings((rows as MeetingRow[]).map(mapMeetingRowToMeeting), sort));
+          const meetings = sortMeetings((rows as MeetingRow[]).map(mapMeetingRowToMeeting), sort);
+          setData(meetings);
+          cacheMeetingsLocally(meetings);
         }
       } catch (err) {
         console.error('[useMeetings] fetchMeetings error:', err);
         if (isMounted) {
-          setData([]);
+          const cached = getCachedMeetings();
+          setData(sortMeetings(cached, sort));
         }
       } finally {
         if (isMounted) {
@@ -226,21 +277,36 @@ export function useMeetings(sort: MeetingSort = 'updated') {
         const existing = current ?? [];
 
         if (event.type === 'deleted') {
-          return existing.filter((meeting) => meeting.id !== event.meetingId);
+          const next = existing.filter((meeting) => meeting.id !== event.meetingId);
+          cacheMeetingsLocally(next);
+          return next;
         }
 
         const nextMeetings = existing.some((meeting) => meeting.id === event.meeting.id)
           ? existing.map((meeting) => (meeting.id === event.meeting.id ? event.meeting : meeting))
           : [event.meeting, ...existing];
 
-        return sortMeetings(nextMeetings, sort);
+        const sorted = sortMeetings(nextMeetings, sort);
+        cacheMeetingsLocally(sorted);
+        return sorted;
       });
     });
+
+    const handleSyncComplete = () => {
+      fetchMeetings(false);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('taskmaster:sync_complete', handleSyncComplete);
+    }
 
     return () => {
       isMounted = false;
       supabase.removeChannel(channel);
       unsubscribe();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('taskmaster:sync_complete', handleSyncComplete);
+      }
     };
   }, [isConfigured, sort, supabase, user]);
 

@@ -116,10 +116,19 @@ export const AddTaskSheet: React.FC = () => {
         form.setValue('priority', priority.toUpperCase() as TaskPriority);
       }
       if (status) {
-        const normalizedStatus = status.toUpperCase().replace(/\s+/g, '_');
+        let normalizedStatus = status.toUpperCase().replace(/\s+/g, '_');
+        if (normalizedStatus === 'TO_DO') {
+          normalizedStatus = 'TODO';
+        }
+        // Force completed tasks to import as TODO so they don't start as finished
+        if (normalizedStatus === 'COMPLETED') {
+          normalizedStatus = 'TODO';
+        }
         if (['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'].includes(normalizedStatus)) {
           form.setValue('status', normalizedStatus as TaskStatus);
         }
+      } else {
+        form.setValue('status', 'TODO');
       }
       if (reminder) {
         const parsedReminder = reminder.match(/(\d{1,2}:\d{2}\s?[APMapm]{2}|\d{2}:\d{2})/);
@@ -261,7 +270,7 @@ export const AddTaskSheet: React.FC = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select status" />
@@ -285,7 +294,7 @@ export const AddTaskSheet: React.FC = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priority</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select priority" />

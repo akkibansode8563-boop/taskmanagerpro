@@ -6,7 +6,7 @@ interface AppLogoIconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
-export function AppLogoIcon({ variant = 'gradient', className, ...props }: AppLogoIconProps) {
+export function AppLogoIcon({ variant = 'monochrome', className, ...props }: AppLogoIconProps) {
   if (variant === 'image') {
     return (
       <div 
@@ -31,7 +31,7 @@ export function AppLogoIcon({ variant = 'gradient', className, ...props }: AppLo
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 100 100"
-      className={cn('w-6 h-6 select-none', className)}
+      className={cn('w-6 h-6 select-none text-slate-900 dark:text-slate-50', className)}
       {...props}
     >
       {variant === 'gradient' && (

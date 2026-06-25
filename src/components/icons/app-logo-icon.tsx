@@ -6,7 +6,7 @@ interface AppLogoIconProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
-export function AppLogoIcon({ variant = 'monochrome', className, ...props }: AppLogoIconProps) {
+export function AppLogoIcon({ variant = 'image', className, ...props }: AppLogoIconProps) {
   if (variant === 'image') {
     return (
       <div 

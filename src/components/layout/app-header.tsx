@@ -3,13 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 import { AppLogoIcon } from '../icons/app-logo-icon';
 import { ThemeToggle } from '../ui/theme-toggle';
-import { Button } from '../ui/button';
-import { getDisplayName } from '@/lib/profile';
+import { SyncStatusIndicator } from './sync-status-indicator';
+import { NotificationControl } from './notification-control';
 import { cn } from '@/lib/utils';
-import { useProfile, useSupabaseClient, useUser } from '@/supabase';
 
 function AppLogo({ href }: { href: string }) {
   return (
@@ -23,33 +21,10 @@ function AppLogo({ href }: { href: string }) {
 }
 
 const AppHeader = () => {
-  const { user, isUserLoading } = useUser();
-  const { data: profile } = useProfile();
-  const supabase = useSupabaseClient();
   const pathname = usePathname();
-  const displayName = getDisplayName(user, profile);
-
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
 
   const navLinkClassName = (href: string) =>
     cn('transition-colors hover:text-foreground/80', pathname === href ? 'text-foreground' : 'text-foreground/60');
-
-  if (isUserLoading || !user) {
-    return (
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4 md:px-6">
-          <div className="mr-4 flex items-center">
-            <AppLogo href="/" />
-          </div>
-          <div className="flex flex-1 items-center justify-end space-x-2">
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
-    );
-  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -67,17 +42,12 @@ const AppHeader = () => {
           <AppLogo href="/dashboard" />
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
+          <SyncStatusIndicator />
+          <NotificationControl />
           <div className="hidden text-right md:block">
-            <p className="text-sm font-medium">{displayName}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
+            <p className="text-sm font-medium">Workspace</p>
+            <p className="text-xs text-muted-foreground">All Devices Synced</p>
           </div>
-          <Button variant="ghost" size="icon" className="md:hidden" onClick={handleSignOut} aria-label="Sign out">
-            <LogOut className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" onClick={handleSignOut} className="hidden md:inline-flex">
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Sign Out</span>
-          </Button>
           <ThemeToggle />
         </div>
       </div>

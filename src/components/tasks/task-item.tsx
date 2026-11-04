@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { Bell, CalendarDays, Flag, History, Layers3 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Bell, CalendarDays, Check, Flag, History, Layers3, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
 import { type Task } from '@/lib/types';
 import { cn, formatDate, formatDateTime } from '@/lib/utils';
 import { normalizeTask, taskStatusLabel } from '@/lib/workflow';
@@ -42,6 +44,41 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onStatusChange }) => {
   const normalizedTask = normalizeTask(task);
   const [optimisticStatus, setOptimisticStatus] = useState(normalizedTask.status);
   const { user } = useUser();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const highlightedId = searchParams.get('highlight');
+  const [isDismissed, setIsDismissed] = useState(false);
+  const isUrlHighlighted = highlightedId === task.id && !isDismissed;
+
+  const now = Date.now();
+  const isOverdue =
+    optimisticStatus !== 'COMPLETED' && new Date(normalizedTask.dueDate).getTime() < now;
+  const isReminderFiring =
+    optimisticStatus !== 'COMPLETED' &&
+    Boolean(normalizedTask.reminderTime) &&
+    new Date(normalizedTask.reminderTime ?? '').getTime() <= now &&
+    new Date(normalizedTask.reminderTime ?? '').getTime() >= now - 15 * 60 * 1000;
+
+  const shouldHighlight = isUrlHighlighted || (isReminderFiring && !isDismissed);
+
+  // Auto-scroll into view when targeted by URL highlight
+  useEffect(() => {
+    if (isUrlHighlighted && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isUrlHighlighted]);
+
+  const handleAcknowledge = () => {
+    setIsDismissed(true);
+    if (highlightedId === task.id) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('highlight');
+      const query = params.toString();
+      router.replace(query ? `?${query}` : '/tasks');
+    }
+  };
 
   useEffect(() => {
     setOptimisticStatus(normalizedTask.status);
@@ -70,9 +107,50 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onStatusChange }) => {
     }
   };
 
+  const getHighlightRing = () => {
+    if (!shouldHighlight) return '';
+    switch (task.priority) {
+      case 'HIGH':
+        return 'ring-2 ring-red-500 shadow-lg shadow-red-500/20 bg-red-500/[0.03] dark:bg-red-950/20';
+      case 'MEDIUM':
+        return 'ring-2 ring-amber-500 shadow-lg shadow-amber-500/20 bg-amber-500/[0.03] dark:bg-amber-950/20';
+      case 'LOW':
+      default:
+        return 'ring-2 ring-sky-500 shadow-lg shadow-sky-500/20 bg-sky-500/[0.03] dark:bg-sky-950/20';
+    }
+  };
+
   return (
-    <Card className={cn('transition-all', isCompleted && 'bg-muted/50')}>
+    <Card
+      ref={cardRef}
+      className={cn(
+        'transition-all duration-300',
+        isCompleted && 'bg-muted/50',
+        getHighlightRing()
+      )}
+    >
       <CardContent className="flex flex-col gap-4 p-4">
+        {shouldHighlight && (
+          <div className="flex items-center justify-between border-b pb-2 text-xs">
+            <div className="flex items-center gap-1.5 font-semibold text-primary">
+              <Sparkles className="h-4 w-4 motion-safe:animate-pulse text-primary" />
+              <span className="motion-safe:animate-pulse">
+                {isReminderFiring ? 'Reminder Alert' : 'Focused Task'}
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleAcknowledge}
+              className="h-6 gap-1 px-2 text-xs cursor-pointer"
+            >
+              <Check className="h-3 w-3" />
+              <span>Acknowledge</span>
+            </Button>
+          </div>
+        )}
+
         <div className="flex items-start gap-4">
           <Checkbox
             id={`task-${task.id}`}
@@ -97,6 +175,11 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onStatusChange }) => {
                   {visibleTask.category}
                 </Badge>
               )}
+              {isOverdue && (
+                <Badge variant="destructive" className="motion-safe:animate-pulse text-xs font-semibold">
+                  Overdue
+                </Badge>
+              )}
             </div>
             {visibleTask.details && (
               <p className={cn('mt-1 text-sm text-muted-foreground', isCompleted && 'line-through')}>
@@ -108,12 +191,12 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onStatusChange }) => {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-10 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1.5">
+          <div className={cn('flex items-center gap-1.5', isOverdue && 'text-red-600 dark:text-red-400 font-medium')}>
             <CalendarDays className="h-4 w-4" />
             <span>{formatDate(visibleTask.dueDate)}</span>
           </div>
           {visibleTask.reminderTime && (
-            <div className="flex items-center gap-1.5">
+            <div className={cn('flex items-center gap-1.5', isReminderFiring && 'text-amber-600 dark:text-amber-400 font-medium')}>
               <Bell className="h-4 w-4" />
               <span>{formatDateTime(visibleTask.reminderTime)}</span>
             </div>

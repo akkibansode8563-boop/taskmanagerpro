@@ -7,8 +7,9 @@ import AppFooter from '@/components/layout/app-footer';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register';
+import { RemindersProvider } from '@/components/providers/reminders-provider';
 import MobileNav from '@/components/layout/mobile-nav';
-import { SupabaseProvider } from '@/supabase';
+import { SupabaseProvider, RealtimeProvider } from '@/supabase';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -41,14 +42,18 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <SupabaseProvider>
             <AuthProvider>
-              <ServiceWorkerRegister />
-              <div className="flex min-h-screen flex-col">
-                <AppHeader />
-                <main className="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</main>
-                <AppFooter />
-                <MobileNav />
-              </div>
-              <Toaster />
+              <RealtimeProvider>
+                <RemindersProvider>
+                  <ServiceWorkerRegister />
+                  <div className="flex min-h-screen flex-col">
+                    <AppHeader />
+                    <main className="flex-1 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-4">{children}</main>
+                    <AppFooter />
+                    <MobileNav />
+                  </div>
+                  <Toaster />
+                </RemindersProvider>
+              </RealtimeProvider>
             </AuthProvider>
           </SupabaseProvider>
         </ThemeProvider>

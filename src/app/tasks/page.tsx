@@ -1,36 +1,23 @@
 'use client';
 
-import React, { Suspense, useEffect } from 'react';
-import { Capacitor } from '@capacitor/core';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import TaskList from '@/components/tasks/task-list';
 import type { TaskFilter } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AddTaskSheet } from '@/components/tasks/add-task-sheet';
 import { useTasks } from '@/supabase';
-import { syncTaskReminders } from '@/lib/mobile-reminders';
 
 /**
  * TasksPageContent is separated from the outer page so it can be wrapped
  * in Suspense (useSearchParams() requires Suspense).
- * Native reminder sync also lives here so tasks aren't fetched twice —
- * auth-provider no longer calls useTasks() at the root layout level.
+ * Native reminder sync is handled globally in RemindersProvider.
  */
 function TasksPageContent() {
   const searchParams = useSearchParams();
   const initialFilter = (searchParams.get('filter') ?? 'pending') as TaskFilter;
   const initialSearch = searchParams.get('search') ?? '';
   const { data: tasks, isLoading } = useTasks('updated');
-
-  // Sync Capacitor local notifications whenever the task list changes.
-  // This is a no-op on web (syncTaskReminders checks isNativePlatform internally).
-  useEffect(() => {
-    if (!tasks) return;
-    if (!Capacitor.isNativePlatform()) return;
-    syncTaskReminders(tasks).catch(() => {
-      // Do not block the UI if native reminder sync fails.
-    });
-  }, [tasks]);
 
   return (
     <TaskList

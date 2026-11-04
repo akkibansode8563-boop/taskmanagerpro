@@ -8,6 +8,7 @@ export type TaskRow = {
   category: string | null;
   due_at: string;
   reminder_at: string | null;
+  reminder_sent_at?: string | null;
   priority: TaskPriority;
   status: TaskStatus;
   was_carried_forward: boolean;
@@ -37,6 +38,25 @@ export type ProfileRow = {
   last_login_at: string | null;
 };
 
+export type DeviceTokenRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: 'android' | 'ios';
+  created_at: string;
+  updated_at: string;
+};
+
+export type PushSubscriptionRow = {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -54,6 +74,16 @@ export type Database = {
         Row: MeetingRow;
         Insert: Omit<MeetingRow, 'created_at' | 'updated_at'>;
         Update: Partial<Omit<MeetingRow, 'id' | 'user_id' | 'created_at'>>;
+      };
+      device_tokens: {
+        Row: DeviceTokenRow;
+        Insert: Omit<DeviceTokenRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<DeviceTokenRow, 'id' | 'user_id' | 'created_at'>>;
+      };
+      push_subscriptions: {
+        Row: PushSubscriptionRow;
+        Insert: Omit<PushSubscriptionRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<PushSubscriptionRow, 'id' | 'user_id' | 'created_at'>>;
       };
     };
   };

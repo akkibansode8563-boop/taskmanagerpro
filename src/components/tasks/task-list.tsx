@@ -35,6 +35,15 @@ const TaskList: React.FC<TaskListProps> = ({
   const [sortBy, setSortBy] = useState<TaskSort>('due-soon');
   const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, ReturnType<typeof normalizeTask>['status']>>({});
 
+  const highlightedId = searchParams.get('highlight');
+  React.useEffect(() => {
+    if (!highlightedId || !tasks) return;
+    const target = tasks.find((t) => t.id === highlightedId);
+    if (target && isTaskDone(target) && activeTab === 'pending') {
+      setActiveTab('all');
+    }
+  }, [highlightedId, tasks, activeTab]);
+
   const handleTabChange = (tab: string) => {
     const newTab = tab as TaskFilter;
     setActiveTab(newTab);

@@ -41,5 +41,13 @@ export function getSupabaseBrowserClient(): SupabaseClient {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return Boolean(supabaseUrl && supabaseAnonKey);
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+  if (
+    supabaseUrl.includes('placeholder') ||
+    supabaseUrl.includes('your-project') ||
+    supabaseAnonKey.includes('placeholder')
+  ) {
+    return false;
+  }
+  return true;
 }

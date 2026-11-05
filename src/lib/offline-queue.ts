@@ -1,6 +1,6 @@
 'use client';
 
-import { getSupabaseBrowserClient } from '@/supabase/client';
+import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/supabase/client';
 import type { Task, Meeting } from './types';
 
 export interface QueueItem {
@@ -93,8 +93,8 @@ export function enqueueOperation(
   queue.push(newItem);
   saveOfflineQueue(queue);
 
-  // Trigger sync process in background if online (failsafe)
-  if (navigator.onLine) {
+  // Trigger sync process in background if online and Supabase is configured
+  if (typeof navigator !== 'undefined' && navigator.onLine && isSupabaseConfigured()) {
     syncOfflineQueue();
   }
 }
@@ -104,6 +104,7 @@ let isSyncing = false;
 
 export async function syncOfflineQueue() {
   if (isSyncing || typeof window === 'undefined') return;
+  if (!isSupabaseConfigured()) return;
   const queue = getOfflineQueue();
   if (queue.length === 0) return;
 

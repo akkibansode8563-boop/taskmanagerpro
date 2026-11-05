@@ -113,7 +113,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   const refetchTasks = useCallback(
     async (showSkeleton = false) => {
-      if (!user || !isConfigured) return;
+      if (!user || !isConfigured) {
+        if (isMountedRef.current) {
+          setIsTasksLoading(false);
+        }
+        return;
+      }
 
       if (showSkeleton) {
         setIsTasksLoading(true);
@@ -160,7 +165,12 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   const refetchMeetings = useCallback(
     async (showSkeleton = false) => {
-      if (!user || !isConfigured) return;
+      if (!user || !isConfigured) {
+        if (isMountedRef.current) {
+          setIsMeetingsLoading(false);
+        }
+        return;
+      }
 
       if (showSkeleton) {
         setIsMeetingsLoading(true);

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ai } from '@/ai/genkit';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,6 +10,8 @@ export async function POST(req: NextRequest) {
     if (!notes || notes.trim() === '') {
       return NextResponse.json({ error: 'Notes cannot be empty.' }, { status: 400 });
     }
+
+    const { ai } = await import('@/ai/genkit');
 
     const prompt = `
 You are an expert AI meeting assistant. Analyze the following meeting notes and generate a highly professional summary.
